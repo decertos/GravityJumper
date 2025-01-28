@@ -4,6 +4,7 @@ from random import choices, randint
 from PIL import Image
 from time import time
 import pygame
+import json
 import os
 
 
@@ -47,6 +48,9 @@ class Player(pygame.sprite.Sprite):
         self.collided = False
         self.flown = False
 
+        self.gravity_change_delta = 0.3
+        self.prev_gravity_change = -1
+
     def change_image(self):
         if time() - self.prev_time < self.animation_delta:
             return
@@ -81,6 +85,7 @@ class Player(pygame.sprite.Sprite):
 
         # Check if player has flown out of the screen
         if (self.rect.y > SCREEN_HEIGHT or self.rect.y < 0 - self.rect.height) and self.flown:
+            save_data()
             exit(0)
 
     def tiles_check(self):
@@ -94,8 +99,11 @@ class Player(pygame.sprite.Sprite):
             if isinstance(tile, ElectricalTile):
                 print(True, tile.timer)
                 if tile.timer >= 5:
+                    save_data()
                     exit(0)
             elif isinstance(tile, BouncingTile):
+                if self.flown:
+                    continue
                 tile.bounced = True
                 self.rect.y = tile.rect.bottom
                 self.reverse_jump()
@@ -117,8 +125,11 @@ class Player(pygame.sprite.Sprite):
             # Handle special tiles
             if isinstance(tile, ElectricalTile):
                 if tile.timer >= 5:
+                    save_data()
                     exit(0)
             elif isinstance(tile, BouncingTile):
+                if self.flown:
+                    continue
                 tile.bounced = True
                 self.rect.y = tile.rect.top - self.rect.height
                 self.reverse_jump()
@@ -136,7 +147,23 @@ class Player(pygame.sprite.Sprite):
             self.vy = -5 if self.up_pos else 5
             self.flown = True
 
+    def coins_check(self):
+        global coins_count
+
+        to_pop = []
+        for i in range(len(coins)):
+            if self.rect.colliderect(coins[i].rect):
+                to_pop.append(i)
+                coins_count += 1
+        delta = 0
+        for i in to_pop:
+            coins.pop(i - delta)
+            delta += 1
+
     def reverse_jump(self):
+        if time() - self.prev_gravity_change < self.gravity_change_delta:
+            return
+        self.prev_gravity_change = time()
         if self.up_pos:
             self.image = self.frames[self.current_image_index]
             self.up_pos = not self.up_pos
@@ -172,13 +199,15 @@ class Tile(pygame.sprite.Sprite):
 
 
 class ElectricalTile(Tile):
+    frames = []
+    for file_name in os.listdir("assets/tiles_animations/electrical"):
+        frames.append(pygame.transform.scale(
+            pygame.image.load(f"assets/tiles_animations/electrical/{file_name}"),
+            (TILE_WIDTH * ENLARGING_COEFFICIENT, TILE_HEIGHT * ENLARGING_COEFFICIENT)))
+        frames[-1].set_colorkey((0, 0, 0))
+
     def __init__(self, position):
-        images = []
-        for file_name in os.listdir("assets/tiles_animations/electrical"):
-            images.append(pygame.transform.scale(
-                pygame.image.load(f"assets/tiles_animations/electrical/{file_name}"),
-                (TILE_WIDTH * ENLARGING_COEFFICIENT, TILE_HEIGHT * ENLARGING_COEFFICIENT)))
-            images[-1].set_colorkey((0, 0, 0))
+        images = ElectricalTile.frames
         self.timer = 0
         super().__init__(position, images)
 
@@ -202,20 +231,24 @@ class ElectricalTile(Tile):
 
 
 class NormalTile(Tile):
+    frames = [pygame.transform.scale(pygame.image.load("assets/tiles_animations/normal/1.png"),
+                                     (TILE_WIDTH * ENLARGING_COEFFICIENT,
+                                      TILE_HEIGHT * ENLARGING_COEFFICIENT))]
+
     def __init__(self, position):
-        frames = [pygame.transform.scale(pygame.image.load("assets/tiles_animations/normal/1.png"),
-                                         (TILE_WIDTH * ENLARGING_COEFFICIENT,
-                                          TILE_HEIGHT * ENLARGING_COEFFICIENT))]
+        frames = NormalTile.frames
         super().__init__(position, frames)
 
 
 class BouncingTile(Tile):
+    frames = []
+    for i in os.listdir("assets/tiles_animations/bouncing"):
+        frames.append(pygame.transform.scale(pygame.image.load("assets/tiles_animations/bouncing/" + i),
+                                             (TILE_WIDTH * ENLARGING_COEFFICIENT,
+                                              TILE_HEIGHT * ENLARGING_COEFFICIENT)))
+
     def __init__(self, position):
-        frames = []
-        for i in os.listdir("assets/tiles_animations/bouncing"):
-            frames.append(pygame.transform.scale(pygame.image.load("assets/tiles_animations/bouncing/" + i),
-                                                 (TILE_WIDTH * ENLARGING_COEFFICIENT,
-                                                  TILE_HEIGHT * ENLARGING_COEFFICIENT)))
+        frames = BouncingTile.frames
         super().__init__(position, frames)
         self.current_image_index = 0
         self.image = frames[0]
@@ -232,6 +265,39 @@ class BouncingTile(Tile):
             self.image = self.images[self.current_image_index]
 
 
+class Coin(pygame.sprite.Sprite):
+    images = []
+    for i in os.listdir("assets/frames"):
+        image = pygame.image.load("assets/frames/" + i)
+        if "coin_anim_f" in i:
+            images.append(pygame.transform.scale(image, (ENLARGING_COEFFICIENT * image.get_width(),
+                                                         ENLARGING_COEFFICIENT * image.get_height())))
+
+    def __init__(self, x, y):
+        super().__init__()
+        self.images = Coin.images
+        self.image = self.images[0]
+        self.rect = pygame.Rect(x, y, self.image.get_width(), self.image.get_height())
+
+        self.current_image_index = 0
+        self.animation_delta = 0.1
+        self.prev_animation = -1
+
+        self.delta = 1
+
+    def change_image(self):
+        if time() - self.prev_animation < self.animation_delta:
+            return
+        self.current_image_index = (self.current_image_index + 1) % len(self.images)
+        self.image = self.images[self.current_image_index]
+        self.prev_animation = time()
+
+        self.delta = -self.delta
+
+    def draw(self):
+        screen.blit(self.image, (self.rect.x, self.rect.y + self.delta))
+
+
 def get_image(file, position, size, new_file_name):
     # Crop images
     tile_image = Image.open(file)
@@ -245,6 +311,11 @@ def reload_images():
     for i in range(WALL_IMAGES_COUNT):
         get_image("assets/images/all_walls.png", (i * WALL_WIDTH + i, 0), (WALL_WIDTH, WALL_HEIGHT),
                   f"assets/images/wall_images/wall{i}.png")
+
+
+def save_data():
+    with open("game_save.json", "w") as f:
+        json.dump({"coins": coins_count, "high_score": max(score, high_score)}, f)
 
 
 if __name__ == "__main__":
@@ -267,6 +338,17 @@ if __name__ == "__main__":
 
     tiles_up = deque()
     tiles_down = deque()
+    coins = []
+    coins_count = 0
+    high_score = 0
+    try:
+        with open("game_save.json") as f:
+            all_data = json.load(f)
+            coins_count = all_data["coins"]
+            high_score = all_data["high_score"]
+            print(coins_count)
+    except Exception as e:
+        print("Не найден файл сохранения. Возможно, он был перенесён.")
 
     ALL_TILES = [NormalTile, BouncingTile, ElectricalTile]
 
@@ -278,12 +360,25 @@ if __name__ == "__main__":
     # Game loop
     running = True
     current_wall_images = deque(choices(wall_images, k=4))
-    for i, tile in enumerate([choices(ALL_TILES, k=1)[0] for i in range(4)]):
-        new_tile = tile
-        tiles_up.append(new_tile((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
-                                  SCREEN_HEIGHT - TILE_HEIGHT * 2)))
-        tiles_down.append(new_tile((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
-                                    TILE_HEIGHT * 2)))
+    for i in range(4):
+        up = choices(ALL_TILES, k=1)[0]((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
+                                         TILE_HEIGHT * 2))
+        down = choices(ALL_TILES, k=1)[0]((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
+                                           SCREEN_HEIGHT - TILE_HEIGHT * 2))
+        if isinstance(up, ElectricalTile) and isinstance(down, ElectricalTile):
+            number = randint(1, 2)
+            if number == 1:
+                up = NormalTile((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
+                                 TILE_HEIGHT * 2))
+            elif number == 2:
+                down = NormalTile((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
+                                   SCREEN_HEIGHT - TILE_HEIGHT * 2))
+        tiles_up.append(up)
+        tiles_down.append(down)
+
+    show_coin_frames = Coin.images
+    current_show_coin_frame = 0
+    prev_show_coin_frame_time = -1
 
     while running:
         screen.fill("black")
@@ -309,6 +404,7 @@ if __name__ == "__main__":
         player_sprite.draw(screen)
         player.move()
         player.tiles_check()
+        player.coins_check()
 
         # Walls rendering
         wall_render_delta += WALLS_SPEED
@@ -318,22 +414,40 @@ if __name__ == "__main__":
             tiles_up.popleft()
             tiles_down.popleft()
             up = choices(ALL_TILES, k=1)[0]((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
-                                                        TILE_HEIGHT * 2))
+                                             TILE_HEIGHT * 2))
             down = choices(ALL_TILES, k=1)[0]((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
-                                                        SCREEN_HEIGHT - TILE_HEIGHT * 2))
+                                               SCREEN_HEIGHT - TILE_HEIGHT * 2))
             if isinstance(up, ElectricalTile) and isinstance(down, ElectricalTile):
                 number = randint(1, 2)
                 if number == 1:
                     up = NormalTile((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
-                                                        TILE_HEIGHT * 2))
+                                     TILE_HEIGHT * 2))
                 elif number == 2:
                     down = NormalTile((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
-                                                        SCREEN_HEIGHT - TILE_HEIGHT * 2))
+                                       SCREEN_HEIGHT - TILE_HEIGHT * 2))
             tiles_up.append(up)
             tiles_down.append(down)
 
             score += 1
             wall_render_delta = 0
+
+        to_pop = []
+        for i in range(len(coins)):
+            if coins[i].rect.x < 0:
+                to_pop.append(i)
+        delta = 0
+        for i in to_pop:
+            coins.pop(i - delta)
+            delta += 1
+
+        for i in range(len(coins)):
+            coins[i].rect.x -= WALLS_SPEED
+            coins[i].change_image()
+            coins[i].draw()
+
+        if len(coins) < COINS_VISIBILITY_LIMIT and randint(1, COINS_APPEND_CHANCE) == COINS_APPEND_CHANCE:
+            coins.append(Coin(randint(SCREEN_WIDTH, 2 * SCREEN_WIDTH),
+                              randint(tiles_up[0].rect.bottom, tiles_down[0].rect.top - 1)))
 
         # Animation
         player.change_image()
@@ -344,6 +458,18 @@ if __name__ == "__main__":
         screen.blit(rendered, (SCREEN_WIDTH - rendered.get_width() - 5 * ENLARGING_COEFFICIENT,
                                rendered.get_height() - 5 * ENLARGING_COEFFICIENT))
 
+        if time() - prev_show_coin_frame_time > COIN_ANIMATION_DELTA:
+            current_show_coin_frame = (current_show_coin_frame + 1) % len(show_coin_frames)
+            prev_show_coin_frame_time = time()
+
+        rendered1 = font.render(str(coins_count), True, (255, 255, 255))
+        screen.blit(show_coin_frames[current_show_coin_frame], (SCREEN_WIDTH - rendered1.get_width() - ENLARGING_COEFFICIENT * 20,
+                                                                rendered.get_height() + 12 * ENLARGING_COEFFICIENT))
+        screen.blit(rendered1, (SCREEN_WIDTH - rendered1.get_width() - 5 * ENLARGING_COEFFICIENT,
+                                rendered.get_height() + 10 * ENLARGING_COEFFICIENT))
+
         # Display drawing
         clock.tick(FPS)
         pygame.display.flip()
+
+    save_data()
