@@ -61,53 +61,79 @@ class Player(pygame.sprite.Sprite):
         self.rect = pygame.Rect(self.rect.x, self.rect.y, self.image.get_width(), self.image.get_height())
 
     def move(self):
+        # Apply gravity based on current direction
+        if self.up_pos:
+            # Gravity is upwards, accelerate upwards (negative direction)
+            self.vy -= 1
+        else:
+            # Gravity is downwards, accelerate downwards (positive direction)
+            self.vy += 1
+
+        # Check screen boundaries and stop if exceeded
         if self.vy != 0 and not self.flown:
-            max_pos = TILE_HEIGHT * 3 if self.vy < 0 \
-                else SCREEN_HEIGHT - self.rect.height - 20
-            if self.vy > 0 and self.rect.y > max_pos:
+            max_pos = TILE_HEIGHT * 3 if self.vy < 0 else SCREEN_HEIGHT - self.rect.height - 20
+            if (self.vy > 0 and self.rect.y > max_pos) or (self.vy < 0 and self.rect.y < max_pos):
                 self.rect.y = max_pos
                 self.vy = 0
-            elif self.vy < 0 and self.rect.y < max_pos:
-                self.rect.y = max_pos
-                self.vy = 0
-        if self.vy != 0:
-            self.vy += self.vy // abs(self.vy)
+
+        # Move the player
         self.rect = self.rect.move(self.vx, self.vy)
+
+        # Check if player has flown out of the screen
         if (self.rect.y > SCREEN_HEIGHT or self.rect.y < 0 - self.rect.height) and self.flown:
             exit(0)
 
     def tiles_check(self):
         collided = False
+        # Check collision with ceiling tiles (tiles_up)
         for tile in tiles_up:
             if not tile.rect.colliderect(self.rect):
                 continue
             collided = True
+            # Handle special tiles
             if isinstance(tile, ElectricalTile):
-                tile_timer = tile.timer
-                if tile_timer >= 5:
+                print(True, tile.timer)
+                if tile.timer >= 5:
                     exit(0)
             elif isinstance(tile, BouncingTile):
                 tile.bounced = True
-                self.rect.y = TILE_HEIGHT * 3 + 20
+                self.rect.y = tile.rect.bottom
                 self.reverse_jump()
+            else:
+                # Regular ceiling tile: adjust position based on movement direction
+                if self.vy < 0:  # Moving up into the tile
+                    self.rect.top = tile.rect.bottom
+                    self.vy = 0
+                elif self.vy > 0:  # Moving down into the tile (unlikely but possible)
+                    self.rect.bottom = tile.rect.top
+                    self.vy = 0
 
         collided1 = False
+        # Check collision with floor tiles (tiles_down)
         for tile in tiles_down:
             if not tile.rect.colliderect(self.rect):
                 continue
-            collided = True
+            collided1 = True
+            # Handle special tiles
             if isinstance(tile, ElectricalTile):
-                tile_timer = tile.timer
-                if tile_timer >= 5:
+                if tile.timer >= 5:
                     exit(0)
             elif isinstance(tile, BouncingTile):
                 tile.bounced = True
-                self.rect.y = SCREEN_HEIGHT - TILE_HEIGHT * 2 - self.rect.height - 20
+                self.rect.y = tile.rect.top - self.rect.height
                 self.reverse_jump()
+            else:
+                # Regular floor tile: adjust position based on movement direction
+                if self.vy > 0:  # Moving down into the tile
+                    self.rect.bottom = tile.rect.top
+                    self.vy = 0
+                elif self.vy < 0:  # Moving up into the tile
+                    self.rect.top = tile.rect.bottom
+                    self.vy = 0
 
+        # Apply gravity if no collisions and not moving
         if self.vy == 0 and not collided and not collided1:
-            self.vy = -1 if self.up_pos else 1
-            self.vy *= 5
+            self.vy = -5 if self.up_pos else 5
             self.flown = True
 
     def reverse_jump(self):
