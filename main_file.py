@@ -47,7 +47,6 @@ class Player(pygame.sprite.Sprite):
         self.collided = False
         self.flown = False
 
-
     def change_image(self):
         if time() - self.prev_time < self.animation_delta:
             return
@@ -74,7 +73,7 @@ class Player(pygame.sprite.Sprite):
         if self.vy != 0:
             self.vy += self.vy // abs(self.vy)
         self.rect = self.rect.move(self.vx, self.vy)
-        if self.rect.y > SCREEN_HEIGHT or self.rect.y < 0 - self.rect.height:
+        if (self.rect.y > SCREEN_HEIGHT or self.rect.y < 0 - self.rect.height) and self.flown:
             exit(0)
 
     def tiles_check(self):
@@ -87,6 +86,10 @@ class Player(pygame.sprite.Sprite):
                 tile_timer = tile.timer
                 if tile_timer >= 5:
                     exit(0)
+            elif isinstance(tile, BouncingTile):
+                tile.bounced = True
+                self.rect.y = TILE_HEIGHT * 3 + 20
+                self.reverse_jump()
 
         collided1 = False
         for tile in tiles_down:
@@ -97,9 +100,13 @@ class Player(pygame.sprite.Sprite):
                 tile_timer = tile.timer
                 if tile_timer >= 5:
                     exit(0)
+            elif isinstance(tile, BouncingTile):
+                tile.bounced = True
+                self.rect.y = SCREEN_HEIGHT - TILE_HEIGHT * 2 - self.rect.height - 20
+                self.reverse_jump()
 
         if self.vy == 0 and not collided and not collided1:
-            self.vy = -1 if self.up_pos == True else 1
+            self.vy = -1 if self.up_pos else 1
             self.vy *= 5
             self.flown = True
 
@@ -176,6 +183,29 @@ class NormalTile(Tile):
         super().__init__(position, frames)
 
 
+class BouncingTile(Tile):
+    def __init__(self, position):
+        frames = []
+        for i in os.listdir("assets/tiles_animations/bouncing"):
+            frames.append(pygame.transform.scale(pygame.image.load("assets/tiles_animations/bouncing/" + i),
+                                                 (TILE_WIDTH * ENLARGING_COEFFICIENT,
+                                                  TILE_HEIGHT * ENLARGING_COEFFICIENT)))
+        super().__init__(position, frames)
+        self.current_image_index = 0
+        self.image = frames[0]
+        self.bounced = False
+
+    def change_image(self):
+        if self.bounced:
+            self.current_image_index += 1
+            if self.current_image_index > 3:
+                self.current_image_index = 0
+                self.image = self.images[0]
+                self.bounced = False
+                return
+            self.image = self.images[self.current_image_index]
+
+
 def get_image(file, position, size, new_file_name):
     # Crop images
     tile_image = Image.open(file)
@@ -212,7 +242,7 @@ if __name__ == "__main__":
     tiles_up = deque()
     tiles_down = deque()
 
-    ALL_TILES = [NormalTile, ElectricalTile]
+    ALL_TILES = [NormalTile, BouncingTile, ElectricalTile]
 
     # Technical things
     clock = pygame.time.Clock()
