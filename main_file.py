@@ -5,6 +5,7 @@ from PIL import Image
 from time import time
 import pygame
 import json
+import math
 import os
 
 
@@ -74,17 +75,13 @@ class Player(pygame.sprite.Sprite):
             self.vy += 1
 
         # Check screen boundaries and stop if exceeded
-        if self.vy != 0 and not self.flown:
-            max_pos = TILE_HEIGHT * 3 if self.vy < 0 else SCREEN_HEIGHT - self.rect.height - 20
-            if (self.vy > 0 and self.rect.y > max_pos) or (self.vy < 0 and self.rect.y < max_pos):
-                self.rect.y = max_pos
-                self.vy = 0
+
 
         # Move the player
         self.rect = self.rect.move(self.vx, self.vy)
 
         # Check if player has flown out of the screen
-        if (self.rect.y > SCREEN_HEIGHT or self.rect.y < 0 - self.rect.height) and self.flown:
+        if self.rect.y > SCREEN_HEIGHT - 10 or self.rect.y < self.rect.height // 2 - TILE_HEIGHT * 2:
             save_data()
             exit(0)
 
@@ -97,7 +94,6 @@ class Player(pygame.sprite.Sprite):
             collided = True
             # Handle special tiles
             if isinstance(tile, ElectricalTile):
-                print(True, tile.timer)
                 if tile.timer >= 5:
                     save_data()
                     exit(0)
@@ -107,13 +103,13 @@ class Player(pygame.sprite.Sprite):
                 tile.bounced = True
                 self.rect.y = tile.rect.bottom
                 self.reverse_jump()
-            else:
                 # Regular ceiling tile: adjust position based on movement direction
-                if self.vy < 0:  # Moving up into the tile
-                    self.rect.top = tile.rect.bottom
-                    self.vy = 0
-                elif self.vy > 0:  # Moving down into the tile (unlikely but possible)
+            if not isinstance(tile, BouncingTile):
+                if self.vy > 0:  # Moving down into the tile
                     self.rect.bottom = tile.rect.top
+                    self.vy = 0
+                elif self.vy < 0:  # Moving up into the tile
+                    self.rect.top = tile.rect.bottom
                     self.vy = 0
 
         collided1 = False
@@ -128,13 +124,11 @@ class Player(pygame.sprite.Sprite):
                     save_data()
                     exit(0)
             elif isinstance(tile, BouncingTile):
-                if self.flown:
-                    continue
                 tile.bounced = True
                 self.rect.y = tile.rect.top - self.rect.height
                 self.reverse_jump()
-            else:
                 # Regular floor tile: adjust position based on movement direction
+            if not isinstance(tile, BouncingTile):
                 if self.vy > 0:  # Moving down into the tile
                     self.rect.bottom = tile.rect.top
                     self.vy = 0
@@ -145,7 +139,6 @@ class Player(pygame.sprite.Sprite):
         # Apply gravity if no collisions and not moving
         if self.vy == 0 and not collided and not collided1:
             self.vy = -5 if self.up_pos else 5
-            self.flown = True
 
     def coins_check(self):
         global coins_count
@@ -160,6 +153,23 @@ class Player(pygame.sprite.Sprite):
             coins.pop(i - delta)
             delta += 1
 
+    def fireballs_check(self):
+        global fireballs
+
+        for i in fireballs:
+            if i.rect.colliderect(self.rect):
+                save_data()
+                exit(0)
+
+    def enemies_check(self):
+        global enemies
+
+        for i in enemies:
+            if isinstance(i, KillingEnemy):
+                if i.collision_rect.colliderect(self.rect):
+                    save_data()
+                    exit(0)
+
     def reverse_jump(self):
         if time() - self.prev_gravity_change < self.gravity_change_delta:
             return
@@ -172,6 +182,9 @@ class Player(pygame.sprite.Sprite):
         self.image = self.reversed_frames[self.current_image_index]
         self.up_pos = not self.up_pos
         self.vy = -1
+
+    def draw_a_hitbox(self):
+        pygame.draw.rect(screen, pygame.Color("green"), self.rect, width=1)
 
 
 class Tile(pygame.sprite.Sprite):
@@ -197,6 +210,9 @@ class Tile(pygame.sprite.Sprite):
     def draw(self):
         screen.blit(self.image, (self.rect.x, self.rect.y))
 
+    def draw_a_hitbox(self):
+        pygame.draw.rect(screen, pygame.Color("blue"), self.rect, width=1)
+
 
 class ElectricalTile(Tile):
     frames = []
@@ -208,8 +224,10 @@ class ElectricalTile(Tile):
 
     def __init__(self, position):
         images = ElectricalTile.frames
-        self.timer = 0
+        self.timer = randint(0, 4)
         super().__init__(position, images)
+        self.image = images[self.timer]
+        self.current_image_index = self.timer
 
     def change_image(self):
         if time() - self.prev_time < self.animation_delta:
@@ -297,6 +315,165 @@ class Coin(pygame.sprite.Sprite):
     def draw(self):
         screen.blit(self.image, (self.rect.x, self.rect.y + self.delta))
 
+    def draw_a_hitbox(self):
+        pygame.draw.rect(screen, pygame.Color("yellow"), self.rect, width=1)
+
+
+class FireEnemy(pygame.sprite.Sprite):
+    images = []
+    reversed_images = []
+    for i in os.listdir("assets/frames"):
+        if "chort_idle_anim" in i:
+            image = pygame.image.load("assets/frames/" + i)
+            image1 = pygame.transform.flip(image, True, False)
+            images.append(pygame.transform.scale(image1, (image.get_width() * ENLARGING_COEFFICIENT,
+                                                         image.get_height() * ENLARGING_COEFFICIENT)))
+            image2 = pygame.transform.flip(image, True, True)
+            reversed_images.append(pygame.transform.scale(image2, (image.get_width() * ENLARGING_COEFFICIENT,
+                                                                   image.get_height() * ENLARGING_COEFFICIENT)))
+
+    def __init__(self, position, reversed_image):
+        super().__init__()
+
+        self.images = FireEnemy.images if not reversed_image else FireEnemy.reversed_images
+        self.current_index = 0
+        self.image = self.images[self.current_index]
+        self.animation_change_rate = 0.1
+        self.prev_animation_change = -1
+        self.rect = pygame.Rect(position[0], position[1], self.image.get_width(), self.image.get_height())
+
+    def change_animation(self):
+        if time() - self.prev_animation_change < self.animation_change_rate:
+            return
+        self.prev_animation_change = time()
+        self.current_index = (self.current_index + 1) % len(self.images)
+        self.image = self.images[self.current_index]
+
+    def move(self, x, y):
+        self.rect = self.rect.move(x, y)
+
+    def draw_a_hitbox(self):
+        pygame.draw.rect(screen, pygame.Color("red"), self.rect, width=1)
+
+
+class FireBall(pygame.sprite.Sprite):
+    images = []
+    for i in os.listdir("assets/fireball"):
+        image = pygame.image.load("assets/fireball/" + i)
+        image = pygame.transform.flip(image, True, False)
+        images.append(pygame.transform.scale(image, (image.get_width(),
+                                                     image.get_height())))
+
+    def __init__(self, position, velocity):
+        super().__init__()
+        self.images = []
+        for i in FireBall.images:
+            new_image = pygame.transform.rotate(i, 360 - math.degrees(math.atan(velocity[1] / velocity[0])))
+            self.images.append(new_image)
+        self.current_image = 0
+        self.image = self.images[self.current_image]
+        bounding_rect = self.image.get_bounding_rect()
+        self.rect = bounding_rect.copy()
+        self.rect.center = position
+        self.vx, self.vy = velocity
+
+        self.animation_delay = 0.1
+        self.prev_animation_time = -1
+
+    def change_animation(self):
+        if time() - self.prev_animation_time < self.animation_delay:
+            return
+        self.prev_animation_time = time()
+        self.current_image = (self.current_image + 1) % len(self.images)
+        self.image = self.images[self.current_image]
+
+    def move(self):
+        self.rect = self.rect.move(self.vx, self.vy)
+
+    def draw_a_hitbox(self):
+        pygame.draw.rect(screen, pygame.Color("orange"), self.rect, width=1)
+
+
+class KillingEnemy(pygame.sprite.Sprite):
+    images = []
+    reversed_images = []
+    run_images = []
+    reversed_run_images = []
+    for i in os.listdir("assets/frames"):
+        if "big_demon_idle_anim_f" in i:
+            image = pygame.image.load("assets/frames/" + i)
+            image = pygame.transform.scale(image, (image.get_width() * 1.5,
+                                                   image.get_height() * 1.5))
+            images.append(image)
+            reversed_images.append(pygame.transform.flip(image, False, True))
+        elif "big_demon_run_anim_f" in i:
+            image = pygame.image.load("assets/frames/" + i)
+            image = pygame.transform.scale(image, (image.get_width() * 1.5,
+                                                   image.get_height() * 1.5))
+            run_images.append(image)
+            reversed_run_images.append(pygame.transform.flip(image, False, True))
+
+    def __init__(self, position, rotation):
+        super().__init__()
+        if not rotation:
+            self.images = KillingEnemy.images
+            self.run_images = KillingEnemy.run_images
+        else:
+            self.images = KillingEnemy.reversed_images
+            self.run_images = KillingEnemy.reversed_run_images
+        self.current_index = 0
+        self.image = self.images[self.current_index]
+        self.rect = pygame.Rect(position[0], position[1], self.image.get_width(), self.image.get_height())
+        self.collision_rect = self.image.get_bounding_rect()
+        self.collision_rect.center = self.rect.center
+
+        self.animation_delta = 0.1
+        self.prev_animation_time = -1
+        self.running = False
+
+        self.rotation = rotation
+
+    def change_animation(self):
+        if time() - self.prev_animation_time < self.animation_delta:
+            return
+        self.prev_animation_time = time()
+        self.current_index = (self.current_index + 1) % len(self.images)
+        if self.running:
+            self.image = self.run_images[self.current_index]
+        else:
+            self.image = self.images[self.current_index]
+
+    def follow_player(self):
+        self.rect = self.rect.move(-WALLS_SPEED, 0)
+        self.collision_rect = self.collision_rect.move(-WALLS_SPEED, 0)
+        return
+        if self.rect.x == player.rect.x:
+            self.running = False
+            return
+        vx = (player.rect.x - self.rect.x) // abs(player.rect.x - self.rect.x) * 3
+        collided = False
+        if self.rotation:
+            for i in tiles_up:
+                if self.rect.move(vx, -1).colliderect(i):
+                    collided = True
+                    break
+        else:
+            for i in tiles_down:
+                if self.rect.move(vx, 2).colliderect(i):
+                    collided = True
+                    return
+        if collided:
+            self.running = True
+            self.rect = self.rect.move(vx, 0)
+            self.collision_rect = self.collision_rect.move(vx, 0)
+            if vx < 0:
+                self.image = pygame.transform.flip(self.images[self.current_index], True, False)
+        else:
+            self.running = False
+
+    def draw_a_hitbox(self):
+        pygame.draw.rect(screen, pygame.Color("red"), self.collision_rect, width=1)
+
 
 def get_image(file, position, size, new_file_name):
     # Crop images
@@ -316,6 +493,18 @@ def reload_images():
 def save_data():
     with open("game_save.json", "w") as f:
         json.dump({"coins": coins_count, "high_score": max(score, high_score)}, f)
+
+
+def shop():
+    running = True
+    buttons = []
+    while running:
+        screen.fill("black")
+
+
+
+        pygame.display.update()
+
 
 
 if __name__ == "__main__":
@@ -356,6 +545,8 @@ if __name__ == "__main__":
     clock = pygame.time.Clock()
     wall_render_delta = 0
     score = 0
+    is_bossfight = False
+    bossfight_time = -1
 
     # Game loop
     running = True
@@ -379,6 +570,9 @@ if __name__ == "__main__":
     show_coin_frames = Coin.images
     current_show_coin_frame = 0
     prev_show_coin_frame_time = -1
+
+    enemies = pygame.sprite.Group()
+    fireballs = pygame.sprite.Group()
 
     while running:
         screen.fill("black")
@@ -413,23 +607,107 @@ if __name__ == "__main__":
             current_wall_images.append(choices(wall_images, k=1)[0])
             tiles_up.popleft()
             tiles_down.popleft()
-            up = choices(ALL_TILES, k=1)[0]((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
-                                             TILE_HEIGHT * 2))
-            down = choices(ALL_TILES, k=1)[0]((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
-                                               SCREEN_HEIGHT - TILE_HEIGHT * 2))
-            if isinstance(up, ElectricalTile) and isinstance(down, ElectricalTile):
-                number = randint(1, 2)
-                if number == 1:
-                    up = NormalTile((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
-                                     TILE_HEIGHT * 2))
-                elif number == 2:
-                    down = NormalTile((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
-                                       SCREEN_HEIGHT - TILE_HEIGHT * 2))
+            if not is_bossfight:
+                up = choices(ALL_TILES, k=1)[0]((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
+                                                 TILE_HEIGHT * 2))
+                down = choices(ALL_TILES, k=1)[0]((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
+                                                   SCREEN_HEIGHT - TILE_HEIGHT * 2))
+                if isinstance(up, ElectricalTile) and isinstance(down, ElectricalTile):
+                    number = randint(1, 2)
+                    if number == 1:
+                        up = NormalTile((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
+                                         TILE_HEIGHT * 2))
+                    elif number == 2:
+                        down = NormalTile((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
+                                           SCREEN_HEIGHT - TILE_HEIGHT * 2))
+                score += 1
+            else:
+                up = NormalTile((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
+                                                 TILE_HEIGHT * 2))
+                down = NormalTile((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
+                                                   SCREEN_HEIGHT - TILE_HEIGHT * 2))
+                if randint(1, 100) >= 40:
+                    if randint(1, 2) == 1:
+                        x = randint(3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - FireEnemy.images[0].get_width(),
+                                    3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 + FireEnemy.images[0].get_width())
+                        enemies.add(FireEnemy((x, tiles_up[0].rect.bottom), True))
+                    else:
+                        x = randint(3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - FireEnemy.images[0].get_width(),
+                                    3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 + FireEnemy.images[0].get_width())
+                        enemies.add(FireEnemy((x, tiles_down[0].rect.top - FireEnemy.images[0].get_height()), False))
+                else:
+                    if randint(1, 2) == 1:
+                        x = randint(3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - KillingEnemy.images[0].get_width(),
+                                    3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 + KillingEnemy.images[0].get_width())
+                        enemies.add(KillingEnemy((x, tiles_up[0].rect.bottom), True))
+                    else:
+                        x = randint(3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - KillingEnemy.images[0].get_width(),
+                                    3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 + KillingEnemy.images[0].get_width())
+                        enemies.add(KillingEnemy((x, tiles_down[0].rect.top - KillingEnemy.images[0].get_height()), False))
+                    print("a")
+
+                if randint(1, 1) == 1:
+                    if 2 < len(enemies.sprites()):
+                        rnd = randint(2, len(enemies.sprites()))
+
+                        pos = 1
+                        for i in enemies:
+                            if rnd == pos and isinstance(i, FireEnemy):
+                                dx, dy = player.rect.x - i.rect.x, player.rect.y - i.rect.y
+                                if dx != 0 and dy != 0:
+                                    if randint(1, 2) == 1:
+                                        fireballs.add(FireBall((i.rect.x, i.rect.y), (randint(-10, -1), dy // abs(dy) * 5)))
+                                    else:
+                                        fireballs.add(FireBall((i.rect.x, i.rect.y), (-10, 0)))
+                            pos += 1
+
             tiles_up.append(up)
             tiles_down.append(down)
 
-            score += 1
             wall_render_delta = 0
+
+        if score % 10 == 0 and score != 0 and not is_bossfight:
+            is_bossfight = True
+            bossfight_time = time()
+            player.gravity_change_delta = 0.2
+
+        if is_bossfight and time() - bossfight_time > BOSSFIGHT_TIME:
+            is_bossfight = False
+            player.gravity_change_delta = 0.3
+            score += 1
+
+        to_pop = []
+        for i in enemies:
+            if isinstance(i, FireEnemy):
+                i.move(-WALLS_SPEED, 0)
+            elif isinstance(i, KillingEnemy):
+                i.follow_player()
+            i.change_animation()
+            if i.rect.x + i.rect.width < 0:
+                to_pop.append(i)
+
+        delta = 0
+        for i in to_pop:
+            enemies.remove(i)
+            delta += 1
+        enemies.draw(screen)
+
+        player.enemies_check()
+
+        to_pop = []
+        for i in fireballs:
+            i.move()
+            i.change_animation()
+            if i.rect.x + i.rect.width < 0:
+                to_pop.append(i)
+
+            delta = 0
+            for i in to_pop:
+                fireballs.remove(i)
+                delta += 1
+
+            fireballs.draw(screen)
+            player.fireballs_check()
 
         to_pop = []
         for i in range(len(coins)):
@@ -445,9 +723,10 @@ if __name__ == "__main__":
             coins[i].change_image()
             coins[i].draw()
 
-        if len(coins) < COINS_VISIBILITY_LIMIT and randint(1, COINS_APPEND_CHANCE) == COINS_APPEND_CHANCE:
+        if len(coins) < COINS_VISIBILITY_LIMIT and randint(1, COINS_APPEND_CHANCE) == COINS_APPEND_CHANCE and not is_bossfight:
             coins.append(Coin(randint(SCREEN_WIDTH, 2 * SCREEN_WIDTH),
                               randint(tiles_up[0].rect.bottom, tiles_down[0].rect.top - 1)))
+
 
         # Animation
         player.change_image()
@@ -467,6 +746,19 @@ if __name__ == "__main__":
                                                                 rendered.get_height() + 12 * ENLARGING_COEFFICIENT))
         screen.blit(rendered1, (SCREEN_WIDTH - rendered1.get_width() - 5 * ENLARGING_COEFFICIENT,
                                 rendered.get_height() + 10 * ENLARGING_COEFFICIENT))
+
+        if DRAW_HITBOXES:
+            player.draw_a_hitbox()
+            for i in tiles_up:
+                i.draw_a_hitbox()
+            for i in tiles_down:
+                i.draw_a_hitbox()
+            for i in enemies:
+                i.draw_a_hitbox()
+            for i in coins:
+                i.draw_a_hitbox()
+            for i in fireballs:
+                i.draw_a_hitbox()
 
         # Display drawing
         clock.tick(FPS)
