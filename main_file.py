@@ -8,7 +8,6 @@ import json
 import math
 import os
 
-
 game_state = GAME_STATE_MENU
 
 
@@ -20,8 +19,60 @@ def game_over():
     reset_game()
 
 
+def draw_shop():
+    screen.fill("black")
+
+    background_image = pygame.image.load("assets/images/main_menu.png")
+    background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+    screen.blit(background_image, (0, 0))
+
+    upgrade_button_image = pygame.image.load("assets/buttons/upgrade_button.png")
+    upgrade_button_image = pygame.transform.scale(upgrade_button_image, (128, 128))
+
+    skins_button_image = pygame.image.load("assets/buttons/skins_button.png")
+    skins_button_image = pygame.transform.scale(skins_button_image, (128, 128))
+
+    exit_button_image = pygame.image.load("assets/buttons/exit_button.png")
+    exit_button_image = pygame.transform.scale(exit_button_image, (32, 32))
+
+    upgrade_button_rect = upgrade_button_image.get_rect(center=(SCREEN_WIDTH // 4, SCREEN_HEIGHT // 2))
+    skins_button_rect = skins_button_image.get_rect(center=(SCREEN_WIDTH * 3 // 4, SCREEN_HEIGHT // 2))
+    exit_button_rect = exit_button_image.get_rect(topleft=(10, 10))
+
+    screen.blit(upgrade_button_image, upgrade_button_rect)
+    screen.blit(skins_button_image, skins_button_rect)
+    screen.blit(exit_button_image, exit_button_rect)
+
+    return upgrade_button_rect, skins_button_rect, exit_button_rect
+
+def shop():
+    running = True
+    upgrade_button_rect, skins_button_rect, exit_button_rect = draw_shop()
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = event.pos
+
+                if upgrade_button_rect.collidepoint(mouse_pos):
+                    print("Кнопка улучшений нажата")
+                    pass
+                elif skins_button_rect.collidepoint(mouse_pos):
+                    print("Кнопка скинов нажата")
+                    pass
+                elif exit_button_rect.collidepoint(mouse_pos):
+                    global game_state
+                    game_state = GAME_STATE_MENU
+                    running = False
+                    pygame.time.delay(50)
+        pygame.display.update()
+
 def draw_main_menu():
-    global coins_count, prev_main_menu_coin_animation_time, current_main_menu_coin_frame
+    global coins_count
     screen.fill("black")
 
     background_image = pygame.image.load("assets/images/main_menu.png")
@@ -86,9 +137,6 @@ def handle_menu_input(event, start_rect, quit_rect, shop_rect):
 
 def reset_game():
     global coins, tiles_up, tiles_down, enemies, fireballs, player, coins_count, wall_render_delta, score, current_wall_images
-
-    prev_main_menu_coin_animation_time = -1
-    current_main_menu_coin_frame = 0
 
     coins = []
     wall_render_delta = 0
@@ -594,15 +642,6 @@ def save_data():
         json.dump({"coins": coins_count, "high_score": max(score, high_score)}, f)
 
 
-def shop():
-    running = True
-    buttons = []
-    while running:
-        screen.fill("black")
-
-        pygame.display.update()
-
-
 if __name__ == "__main__":
     # Initializing the window
     pygame.init()
@@ -662,6 +701,8 @@ if __name__ == "__main__":
             elif game_state == GAME_STATE_PLAYING:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     player.reverse_jump()
+            elif game_state == GAME_STATE_SHOP:
+                shop()
 
         if game_state == GAME_STATE_PLAYING:
             screen.fill("black")
@@ -849,10 +890,6 @@ if __name__ == "__main__":
                     i.draw_a_hitbox()
                 for i in fireballs:
                     i.draw_a_hitbox()
-
-        elif game_state == GAME_STATE_SHOP:
-            shop()
-            game_state = GAME_STATE_MENU
 
         elif game_state == GAME_STATE_MENU:
             start_rect, quit_rect, shop_rect = draw_main_menu()
