@@ -20,3 +20,4 @@ GAME_STATE_PLAYING = 1
 GAME_STATE_SHOP = 2
 prev_main_menu_coin_animation_time = -1
 current_main_menu_coin_frame = 0
+heart = False
