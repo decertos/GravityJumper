@@ -1,4 +1,5 @@
 from python_files.variables import *
+from python_files.upgrades import *
 from collections import deque
 from random import choices, randint
 from PIL import Image
@@ -11,10 +12,63 @@ import os
 game_state = GAME_STATE_MENU
 
 
+def initialize_shop_data():
+    default_data = {
+        "heart_up": False,
+        "money_chance_up": 0,
+        "boss_time_up": 0,
+        "money_mult_up": False
+    }
+
+    if not os.path.exists("shop_save.json"):
+        with open("shop_save.json", "w") as f:
+            json.dump(default_data, f, indent=4)
+
+
+def apply_upgrades():
+    global heart_up, COINS_APPEND_CHANCE, COINS_VISIBILITY_LIMIT, money_chance_up, money_mult_up, boss_time_up, BOSSFIGHT_TIME
+    try:
+        with open("shop_save.json", "r") as f:
+            data = json.load(f)
+            heart_up = data.get("heart_up", False)
+            money_chance_up = data.get("money_chance_up", 0)
+            boss_time_up = data.get("boss_time_up", 0)
+            money_mult_up = data.get("money_mult_up", False)
+
+    except FileNotFoundError:
+        initialize_shop_data()
+    except json.JSONDecodeError:
+        pass
+
+    if money_chance_up == 1:
+        COINS_APPEND_CHANCE = 40
+        COINS_VISIBILITY_LIMIT = 7
+    if money_chance_up == 2:
+        COINS_APPEND_CHANCE = 30
+        COINS_VISIBILITY_LIMIT = 10
+    if money_chance_up == 3:
+        COINS_APPEND_CHANCE = 20
+        COINS_VISIBILITY_LIMIT = 15
+
+    if boss_time_up == 1:
+        BOSSFIGHT_TIME = 9
+    if boss_time_up == 2:
+        BOSSFIGHT_TIME = 8
+    if boss_time_up == 3:
+        BOSSFIGHT_TIME = 7
+
+
 def game_over():
-    global game_state
+    global game_state, heart_up, heart
 
     save_data()
+
+    if heart:
+        game_state = GAME_STATE_PLAYING
+        heart = False
+        reset_game(reset_score=False)
+        return
+
     game_state = GAME_STATE_MENU
     reset_game()
 
@@ -45,6 +99,7 @@ def draw_shop():
 
     return upgrade_button_rect, skins_button_rect, exit_button_rect
 
+
 def shop():
     running = True
     upgrade_button_rect, skins_button_rect, exit_button_rect = draw_shop()
@@ -70,6 +125,7 @@ def shop():
                     running = False
                     pygame.time.delay(50)
         pygame.display.update()
+
 
 def draw_main_menu():
     global coins_count
@@ -119,12 +175,14 @@ def draw_main_menu():
 
 
 def handle_menu_input(event, start_rect, quit_rect, shop_rect):
-    global game_state
+    global game_state, heart, heart_up
 
     if event.type == pygame.MOUSEBUTTONDOWN:
         mouse_pos = event.pos
 
         if start_rect.collidepoint(mouse_pos):
+            if heart_up:
+                heart = True
             game_state = GAME_STATE_PLAYING
             reset_game()
         elif quit_rect.collidepoint(mouse_pos):
@@ -135,12 +193,13 @@ def handle_menu_input(event, start_rect, quit_rect, shop_rect):
             shop()
 
 
-def reset_game():
+def reset_game(reset_score=True):
     global coins, tiles_up, tiles_down, enemies, fireballs, player, coins_count, wall_render_delta, score, current_wall_images
 
     coins = []
     wall_render_delta = 0
-    score = 0
+    if reset_score:
+        score = 0
     enemies = pygame.sprite.Group()
     fireballs = pygame.sprite.Group()
 
@@ -290,12 +349,14 @@ class Player(pygame.sprite.Sprite):
             self.vy = -5 if self.up_pos else 5
 
     def coins_check(self):
-        global coins_count
+        global coins_count, money_mult_up
 
         to_pop = []
         for i in range(len(coins)):
             if self.rect.colliderect(coins[i].rect):
                 to_pop.append(i)
+                if money_mult_up:
+                    coins_count += 1
                 coins_count += 1
         delta = 0
         for i in to_pop:
@@ -648,6 +709,13 @@ if __name__ == "__main__":
     SCREEN_WIDTH, SCREEN_HEIGHT = WALL_WIDTH * 3 * ENLARGING_COEFFICIENT, WALL_HEIGHT * ENLARGING_COEFFICIENT
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
+    apply_upgrades()
+
+    heart_full_image = pygame.image.load("assets/frames/ui_heart_full.png")
+    heart_empty_image = pygame.image.load("assets/frames/ui_heart_empty.png")
+    heart_full_image_resized = pygame.transform.scale(heart_full_image, (28, 28))
+    heart_empty_image_resized = pygame.transform.scale(heart_empty_image, (28, 28))
+
     # Loading all images
     WALL_IMAGE_WIDTH, WALL_IMAGE_HEIGHT = 84 * ENLARGING_COEFFICIENT, 121 * ENLARGING_COEFFICIENT
     wall_images = []
@@ -716,6 +784,27 @@ if __name__ == "__main__":
                 i.rect.x -= WALLS_SPEED
                 i.change_image()
                 i.draw()
+
+            font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 32)
+            rendered = font.render(f"Score: {score}", True, (255, 255, 255))
+            screen.blit(rendered, (SCREEN_WIDTH - rendered.get_width() - 5 * ENLARGING_COEFFICIENT,
+                                   rendered.get_height() - 5 * ENLARGING_COEFFICIENT))
+
+            rendered1 = font.render(str(coins_count), True, (255, 255, 255))
+            screen.blit(show_coin_frames[current_show_coin_frame],
+                        (SCREEN_WIDTH - rendered1.get_width() - ENLARGING_COEFFICIENT * 20,
+                         rendered.get_height() + 12 * ENLARGING_COEFFICIENT))
+            screen.blit(rendered1, (SCREEN_WIDTH - rendered1.get_width() - 5 * ENLARGING_COEFFICIENT,
+                                    rendered.get_height() + 10 * ENLARGING_COEFFICIENT))
+
+            if heart_up:
+                heart_x = 450
+                heart_y = rendered.get_height() + 10 * ENLARGING_COEFFICIENT + 30
+
+                if heart:
+                    screen.blit(heart_full_image_resized, (heart_x, heart_y))
+                else:
+                    screen.blit(heart_empty_image_resized, (heart_x, heart_y))
 
             player_sprite.draw(screen)
             player.move()
