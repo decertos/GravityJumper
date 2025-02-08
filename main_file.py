@@ -12,6 +12,140 @@ import os
 game_state = GAME_STATE_MENU
 
 
+def draw_upgrade_menu():
+    screen.fill("black")
+
+    background_image = pygame.image.load("assets/images/main_menu.png")
+    background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+    screen.blit(background_image, (0, 0))
+
+    font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 42)
+    upgrade_text = font.render("Upgrades", True, "white")
+    upgrade_rect = upgrade_text.get_rect(topleft=(50, 5))
+
+    exit_button_image = pygame.image.load("assets/buttons/exit_button.png")
+    exit_button_image = pygame.transform.scale(exit_button_image, (32, 32))
+    exit_button_rect = exit_button_image.get_rect(topleft=(10, 10))
+
+    screen.blit(upgrade_text, upgrade_rect)
+    screen.blit(exit_button_image, exit_button_rect)
+
+    boss_time_icon = pygame.image.load("assets/upgrades/boss_time_icon.png")
+    heart_icon = pygame.image.load("assets/upgrades/heart_icon.png")
+    money_chance_icon = pygame.image.load("assets/upgrades/money_chance_icon.png")
+    money_mult_icon = pygame.image.load("assets/upgrades/money_mult_icon.png")
+
+    coin_image = Coin.images[0]
+    coin_image = pygame.transform.scale(coin_image, (24, 24))
+
+    icon_size = (48, 48)
+    boss_time_icon = pygame.transform.scale(boss_time_icon, icon_size)
+    heart_icon = pygame.transform.scale(heart_icon, icon_size)
+    money_chance_icon = pygame.transform.scale(money_chance_icon, icon_size)
+    money_mult_icon = pygame.transform.scale(money_mult_icon, icon_size)
+
+    icon_x = 410
+    icon_spacing = 5
+    start_y = 30
+    text_x = 50
+    upgrade_bar_x = 200
+    upgrade_bar_width = 100
+
+    heart_icon_rect = heart_icon.get_rect(topleft=(icon_x, start_y))
+    money_chance_icon_rect = money_chance_icon.get_rect(topleft=(icon_x, heart_icon_rect.bottom + icon_spacing))
+    boss_time_icon_rect = boss_time_icon.get_rect(topleft=(icon_x, money_chance_icon_rect.bottom + icon_spacing))
+    money_mult_icon_rect = money_mult_icon.get_rect(topleft=(icon_x, boss_time_icon_rect.bottom + icon_spacing))
+
+    upgrade_name = font.render("Extra HP", True, "white")
+    screen.blit(upgrade_name, (text_x - 5, start_y + 6))
+
+    if heart_up:
+        upgrade_cost_text = font.render("MAX", True, "white")
+        can_upgrade_heart = False
+    else:
+        upgrade_cost_text = font.render(str(HEART_UPGRADE_COST), True, "white")
+        can_upgrade_heart = True
+
+    upgrade_cost_rect = upgrade_cost_text.get_rect(topleft=(upgrade_bar_x, start_y + 6))
+    screen.blit(upgrade_cost_text, upgrade_cost_rect)
+    screen.blit(coin_image, (upgrade_cost_rect.right + 3, start_y + 8))
+
+    pygame.draw.rect(screen, "black", (upgrade_bar_x + upgrade_bar_width, start_y + 6, upgrade_bar_width, 30))
+    if heart_up:
+        pygame.draw.rect(screen, "green", (upgrade_bar_x + upgrade_bar_width, start_y + 6, upgrade_bar_width, 30),
+                         width=100)
+
+    upgrade_name = font.render("More Coins", True, "white")
+    screen.blit(upgrade_name, (text_x - 30, heart_icon_rect.bottom + icon_spacing + 6))
+
+    if money_chance_up < len(MONEY_CHANCE_UPGRADE_COSTS):
+        upgrade_cost_text = font.render(str(MONEY_CHANCE_UPGRADE_COSTS[money_chance_up]), True, "white")
+        can_upgrade_money_chance = True
+    else:
+        upgrade_cost_text = font.render("MAX", True, "white")
+        can_upgrade_money_chance = False
+
+    upgrade_cost_rect = upgrade_cost_text.get_rect(topleft=(upgrade_bar_x, heart_icon_rect.bottom + icon_spacing + 6))
+    screen.blit(upgrade_cost_text, upgrade_cost_rect)
+    screen.blit(coin_image, (upgrade_cost_rect.right + 5, heart_icon_rect.bottom + icon_spacing + 8))
+
+    pygame.draw.rect(screen, "black", (
+        upgrade_bar_x + upgrade_bar_width, heart_icon_rect.bottom + icon_spacing + 8, upgrade_bar_width, 30))
+    pygame.draw.rect(screen, "green", (upgrade_bar_x + upgrade_bar_width, heart_icon_rect.bottom + icon_spacing + 8,
+                                       upgrade_bar_width // 3 * money_chance_up, 30), width=100)
+
+    # Boss time
+    upgrade_name = font.render("Weak Boss", True, "white")
+    screen.blit(upgrade_name, (text_x - 30, money_chance_icon_rect.bottom + icon_spacing + 6))
+
+    if boss_time_up < len(BOSS_TIME_UPGRADE_COSTS):
+        upgrade_cost_text = font.render(str(BOSS_TIME_UPGRADE_COSTS[boss_time_up]), True, "white")
+        can_upgrade_boss_time = True
+    else:
+        upgrade_cost_text = font.render("MAX", True, "white")
+        can_upgrade_boss_time = False
+
+    upgrade_cost_rect = upgrade_cost_text.get_rect(
+        topleft=(upgrade_bar_x, money_chance_icon_rect.bottom + icon_spacing + 6))
+    screen.blit(upgrade_cost_text, upgrade_cost_rect)
+    screen.blit(coin_image, (upgrade_cost_rect.right + 5, money_chance_icon_rect.bottom + icon_spacing + 8))
+
+    pygame.draw.rect(screen, "black", (
+        upgrade_bar_x + upgrade_bar_width, money_chance_icon_rect.bottom + icon_spacing + 8, upgrade_bar_width, 30))
+    pygame.draw.rect(screen, "green", (
+        upgrade_bar_x + upgrade_bar_width, money_chance_icon_rect.bottom + icon_spacing + 8,
+        upgrade_bar_width // 3 * boss_time_up, 30), width=100)
+
+    upgrade_name = font.render("x2 coins", True, "white")
+    screen.blit(upgrade_name, (text_x - 20, boss_time_icon_rect.bottom + icon_spacing + 6))
+
+    if money_mult_up:
+        upgrade_cost_text = font.render("MAX", True, "white")
+        can_upgrade_money_mult = False
+    else:
+        upgrade_cost_text = font.render(str(MONEY_MULT_UPGRADE_COST), True, "white")
+        can_upgrade_money_mult = True
+
+    upgrade_cost_rect = upgrade_cost_text.get_rect(
+        topleft=(upgrade_bar_x, boss_time_icon_rect.bottom + icon_spacing + 6))
+    screen.blit(upgrade_cost_text, upgrade_cost_rect)
+    screen.blit(coin_image, (upgrade_cost_rect.right + 5, boss_time_icon_rect.bottom + icon_spacing + 8))
+
+    pygame.draw.rect(screen, "black", (
+        upgrade_bar_x + upgrade_bar_width, boss_time_icon_rect.bottom + icon_spacing + 8, upgrade_bar_width, 30))
+    if money_mult_up:
+        pygame.draw.rect(screen, "green", (
+            upgrade_bar_x + upgrade_bar_width, boss_time_icon_rect.bottom + icon_spacing + 8, upgrade_bar_width, 30),
+                         width=100)
+
+    screen.blit(heart_icon, heart_icon_rect)
+    screen.blit(money_chance_icon, money_chance_icon_rect)
+    screen.blit(boss_time_icon, boss_time_icon_rect)
+    screen.blit(money_mult_icon, money_mult_icon_rect)
+
+    return exit_button_rect, heart_icon_rect, money_chance_icon_rect, boss_time_icon_rect, money_mult_icon_rect, can_upgrade_money_chance, can_upgrade_boss_time, can_upgrade_heart, can_upgrade_money_mult
+
+
 def initialize_shop_data():
     default_data = {
         "heart_up": False,
@@ -100,9 +234,57 @@ def draw_shop():
     return upgrade_button_rect, skins_button_rect, exit_button_rect
 
 
+def buy_upgrade(upgrade_type, can_upgrade):
+    global coins_count, heart_up, money_chance_up, boss_time_up, money_mult_up
+
+    with open("shop_save.json", "r") as f:
+        data = json.load(f)
+
+    if upgrade_type == "heart_up" and not heart_up and can_upgrade:
+        if coins_count >= HEART_UPGRADE_COST:
+            coins_count -= HEART_UPGRADE_COST
+            heart_up = True
+            data["heart_up"] = True
+
+    elif upgrade_type == "money_chance_up" and money_chance_up < 3 and can_upgrade:
+        if coins_count >= MONEY_CHANCE_UPGRADE_COSTS[money_chance_up]:
+            coins_count -= MONEY_CHANCE_UPGRADE_COSTS[money_chance_up]
+            money_chance_up += 1
+            data["money_chance_up"] = money_chance_up
+
+    elif upgrade_type == "boss_time_up" and boss_time_up < 3 and can_upgrade:
+        if coins_count >= BOSS_TIME_UPGRADE_COSTS[boss_time_up]:
+            coins_count -= BOSS_TIME_UPGRADE_COSTS[boss_time_up]
+            boss_time_up += 1
+            data["boss_time_up"] = boss_time_up
+
+    elif upgrade_type == "money_mult_up" and not money_mult_up and can_upgrade:
+        if coins_count >= MONEY_MULT_UPGRADE_COST:
+            coins_count -= MONEY_MULT_UPGRADE_COST
+            money_mult_up = True
+            data["money_mult_up"] = True
+
+    with open("shop_save.json", "w") as f:
+        json.dump(data, f, indent=4)
+
+    save_data()
+    apply_upgrades()
+
+
 def shop():
     running = True
     upgrade_button_rect, skins_button_rect, exit_button_rect = draw_shop()
+    upgrade_menu_exit_button_rect = None
+    heart_icon_rect = None
+    money_chance_icon_rect = None
+    boss_time_icon_rect = None
+    money_mult_icon_rect = None
+    can_upgrade_money_chance = False
+    can_upgrade_boss_time = False
+    can_upgrade_heart = False
+    can_upgrade_money_mult = False
+
+    shop_state = 0
 
     while running:
         for event in pygame.event.get():
@@ -113,17 +295,42 @@ def shop():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = event.pos
 
-                if upgrade_button_rect.collidepoint(mouse_pos):
-                    print("Кнопка улучшений нажата")
-                    pass
-                elif skins_button_rect.collidepoint(mouse_pos):
-                    print("Кнопка скинов нажата")
-                    pass
-                elif exit_button_rect.collidepoint(mouse_pos):
-                    global game_state
-                    game_state = GAME_STATE_MENU
-                    running = False
-                    pygame.time.delay(50)
+                if shop_state == 0:
+                    if upgrade_button_rect.collidepoint(mouse_pos):
+                        shop_state = 1
+                        upgrade_menu_exit_button_rect, heart_icon_rect, money_chance_icon_rect, boss_time_icon_rect, money_mult_icon_rect, can_upgrade_money_chance, can_upgrade_boss_time, can_upgrade_heart, can_upgrade_money_mult = draw_upgrade_menu()
+                        pygame.display.update()
+
+                    elif skins_button_rect.collidepoint(mouse_pos):
+                        print("Кнопка скинов нажата")
+                        pass
+                    elif exit_button_rect.collidepoint(mouse_pos):
+                        global game_state
+                        game_state = GAME_STATE_MENU
+                        running = False
+                        pygame.time.delay(50)
+
+                elif shop_state == 1:
+                    if upgrade_menu_exit_button_rect.collidepoint(mouse_pos):
+                        shop_state = 0
+                        upgrade_menu_exit_button_rect = None
+                        draw_shop()
+                        pygame.display.update()
+                    elif heart_icon_rect.collidepoint(mouse_pos):
+                        buy_upgrade("heart_up", can_upgrade_heart)
+                        upgrade_menu_exit_button_rect, heart_icon_rect, money_chance_icon_rect, boss_time_icon_rect, money_mult_icon_rect, can_upgrade_money_chance, can_upgrade_boss_time, can_upgrade_heart, can_upgrade_money_mult = draw_upgrade_menu()
+                    elif money_chance_icon_rect.collidepoint(mouse_pos):
+                        buy_upgrade("money_chance_up", can_upgrade_money_chance)
+                        upgrade_menu_exit_button_rect, heart_icon_rect, money_chance_icon_rect, boss_time_icon_rect, money_mult_icon_rect, can_upgrade_money_chance, can_upgrade_boss_time, can_upgrade_heart, can_upgrade_money_mult = draw_upgrade_menu()
+                    elif boss_time_icon_rect.collidepoint(mouse_pos):
+                        buy_upgrade("boss_time_up", can_upgrade_boss_time)
+                        upgrade_menu_exit_button_rect, heart_icon_rect, money_chance_icon_rect, boss_time_icon_rect, money_mult_icon_rect, can_upgrade_money_chance, can_upgrade_boss_time, can_upgrade_heart, can_upgrade_money_mult = draw_upgrade_menu()
+                    elif money_mult_icon_rect.collidepoint(mouse_pos):
+                        buy_upgrade("money_mult_up", can_upgrade_money_mult)
+                        upgrade_menu_exit_button_rect, heart_icon_rect, money_chance_icon_rect, boss_time_icon_rect, money_mult_icon_rect, can_upgrade_money_chance, can_upgrade_boss_time, can_upgrade_heart, can_upgrade_money_mult = draw_upgrade_menu()
+
+        if shop_state == 0:
+            upgrade_button_rect, skins_button_rect, exit_button_rect = draw_shop()
         pygame.display.update()
 
 
