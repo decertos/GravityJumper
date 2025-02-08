@@ -8,17 +8,27 @@ import json
 import math
 import os
 
-GAME_STATE_MENU = 0
-GAME_STATE_PLAYING = 1
-GAME_STATE_SHOP = 2
 
 game_state = GAME_STATE_MENU
 
 
+def game_over():
+    global game_state
+
+    save_data()
+    game_state = GAME_STATE_MENU
+    reset_game()
+
+
 def draw_main_menu():
+    global coins_count, prev_main_menu_coin_animation_time, current_main_menu_coin_frame
     screen.fill("black")
 
-    font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 64)
+    background_image = pygame.image.load("assets/images/main_menu.png")
+    background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+    screen.blit(background_image, (0, 0))
+
+    font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 58)
     title_text = font.render("Gravity Jumper", True, "white")
     title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4))
 
@@ -37,6 +47,22 @@ def draw_main_menu():
 
     if GAME_STATE_SHOP == 2:
         screen.blit(shop_text, shop_rect)
+
+    coin_frames = Coin.images
+    coin_image = coin_frames[current_main_menu_coin_frame]
+    coin_image = pygame.transform.scale(coin_image, (28, 28))
+
+    coin_text_font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 32)
+    coin_text = coin_text_font.render(str(coins_count), True, "white")
+
+    coin_image_rect = coin_image.get_rect()
+    coin_text_rect = coin_text.get_rect()
+
+    coin_image_rect.topright = (SCREEN_WIDTH - 10, 10)
+    coin_text_rect.topright = (coin_image_rect.left - 5, 10)
+
+    screen.blit(coin_image, coin_image_rect)
+    screen.blit(coin_text, coin_text_rect)
 
     return start_rect, quit_rect, shop_rect
 
@@ -60,6 +86,9 @@ def handle_menu_input(event, start_rect, quit_rect, shop_rect):
 
 def reset_game():
     global coins, tiles_up, tiles_down, enemies, fireballs, player, coins_count, wall_render_delta, score, current_wall_images
+
+    prev_main_menu_coin_animation_time = -1
+    current_main_menu_coin_frame = 0
 
     coins = []
     wall_render_delta = 0
@@ -157,8 +186,7 @@ class Player(pygame.sprite.Sprite):
 
         # Check if player has flown out of the screen
         if self.rect.y > SCREEN_HEIGHT - 10 or self.rect.y < self.rect.height // 2 - TILE_HEIGHT * 2:
-            save_data()
-            exit(0)
+            game_over()
 
     def tiles_check(self):
         collided = False
@@ -170,8 +198,7 @@ class Player(pygame.sprite.Sprite):
             # Handle special tiles
             if isinstance(tile, ElectricalTile):
                 if tile.timer >= 5:
-                    save_data()
-                    exit(0)
+                    game_over()
             elif isinstance(tile, BouncingTile):
                 if self.flown:
                     continue
@@ -196,8 +223,7 @@ class Player(pygame.sprite.Sprite):
             # Handle special tiles
             if isinstance(tile, ElectricalTile):
                 if tile.timer >= 5:
-                    save_data()
-                    exit(0)
+                    game_over()
             elif isinstance(tile, BouncingTile):
                 tile.bounced = True
                 self.rect.y = tile.rect.top - self.rect.height
@@ -233,8 +259,7 @@ class Player(pygame.sprite.Sprite):
 
         for i in fireballs:
             if i.rect.colliderect(self.rect):
-                save_data()
-                exit(0)
+                game_over()
 
     def enemies_check(self):
         global enemies
@@ -242,8 +267,7 @@ class Player(pygame.sprite.Sprite):
         for i in enemies:
             if isinstance(i, KillingEnemy):
                 if i.collision_rect.colliderect(self.rect):
-                    save_data()
-                    exit(0)
+                    game_over()
 
     def reverse_jump(self):
         if time() - self.prev_gravity_change < self.gravity_change_delta:
@@ -833,6 +857,14 @@ if __name__ == "__main__":
         elif game_state == GAME_STATE_MENU:
             start_rect, quit_rect, shop_rect = draw_main_menu()
             handle_menu_input(event, start_rect, quit_rect, shop_rect)
+
+        if game_state == GAME_STATE_MENU:
+            if time() - prev_main_menu_coin_animation_time > 0.1:
+                current_main_menu_coin_frame = (current_main_menu_coin_frame + 1) % len(Coin.images)
+                prev_main_menu_coin_animation_time = time()
+
+        if game_state == GAME_STATE_MENU:
+            start_rect, quit_rect, shop_rect = draw_main_menu()
 
         # Display drawing
         clock.tick(FPS)
