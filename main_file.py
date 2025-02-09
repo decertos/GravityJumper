@@ -263,7 +263,7 @@ def apply_upgrades():
 
 
 def game_over():
-    global game_state, heart_up, heart, current_death_animation_index
+    global game_state, heart_up, heart, current_death_animation_index, current_reviving_smoke_index, reviving_angel_sprite
 
     save_data()
 
@@ -271,8 +271,11 @@ def game_over():
         game_state = GAME_STATE_PLAYING
         heart = False
         reset_game(reset_score=False)
+        reviving_angel_sprite.add(RevivingAngel())
+        current_reviving_smoke_index = 0
         return
 
+    reviving_angel_sprite = pygame.sprite.Group()
     current_death_animation_index = 0
 
 
@@ -888,6 +891,31 @@ class Coin(pygame.sprite.Sprite):
         pygame.draw.rect(screen, pygame.Color("yellow"), self.rect, width=1)
 
 
+class RevivingAngel(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.images = []
+        for i in get_images("angel_idle"):
+            self.images.append(pygame.transform.scale(i, (i.get_width() * 1.5,
+                                                          i.get_height() * 1.5)))
+        self.current_image_index = 0
+        self.start_time = time()
+        self.prev_animation_change = -1
+        self.rect = pygame.Rect(player.rect.x - 15, player.rect.y, self.images[self.current_image_index].get_width(),
+                                self.images[self.current_image_index].get_height())
+        self.image = self.images[self.current_image_index]
+
+    def change_image(self):
+        self.rect.x, self.rect.y = player.rect.x - 15, player.rect.y
+        if time() - self.start_time > 5:
+            self.kill()
+        if time() - self.prev_animation_change < 0.1:
+            return
+        self.current_image_index = (self.current_image_index + 1) % len(self.images)
+        self.image = self.images[self.current_image_index]
+        self.prev_animation_change = time()
+
+
 class FireEnemy(pygame.sprite.Sprite):
     images = []
     reversed_images = []
@@ -1098,6 +1126,8 @@ if __name__ == "__main__":
     current_show_coin_frame = -1
     show_coin_frames = Coin.images
 
+    reviving_angel_sprite = pygame.sprite.Group()
+
     try:
         with open("game_save.json") as f:
             all_data = json.load(f)
@@ -1122,6 +1152,15 @@ if __name__ == "__main__":
 
     current_death_animation_index = -1
 
+    reviving_smoke_images = []
+    for i in os.listdir("assets/reviving_smoke"):
+        image = pygame.image.load("assets/reviving_smoke/" + i)
+        reviving_smoke_images.append(pygame.transform.scale(image, (image.get_width() * ENLARGING_COEFFICIENT,
+                                                                    image.get_height() * ENLARGING_COEFFICIENT)))
+    current_reviving_smoke_index = -1
+    reviving_smoke_pos = (-1, -1)
+    prev_reviving_smoke_animation_time = -1
+
     # Game loop
     running = True
     while running:
@@ -1139,6 +1178,8 @@ if __name__ == "__main__":
             elif game_state == GAME_STATE_SHOP:
                 shop()
 
+        for i in reviving_angel_sprite:
+            i.change_image()
         if game_state == GAME_STATE_PLAYING:
             screen.fill("black")
             for i in range(len(current_wall_images)):
@@ -1299,6 +1340,17 @@ if __name__ == "__main__":
             enemies.draw(screen)
 
             player.enemies_check()
+            reviving_angel_sprite.draw(screen)
+
+            if current_reviving_smoke_index == 0:
+                reviving_smoke_pos = (player.rect.x - 10, player.rect.y - 10)
+            if current_reviving_smoke_index != -1:
+                screen.blit(reviving_smoke_images[current_reviving_smoke_index], reviving_smoke_pos)
+                if time() - prev_reviving_smoke_animation_time > 0.1:
+                    prev_reviving_smoke_animation_time = time()
+                    current_reviving_smoke_index += 1
+                    if current_reviving_smoke_index == len(reviving_smoke_images):
+                        current_reviving_smoke_index = -1
 
             if current_death_animation_index == -1:
                 to_pop = []
