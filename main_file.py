@@ -28,7 +28,6 @@ all_images = {"Lizard": get_images("lizard_m_run"), "Female Lizard": get_images(
               "Female Knight": get_images("knight_f_run"), "Skeleton": get_images("skelet_run"),
               "Elf": get_images("elf_f_run"), "Pumpkin Dude": get_images("pumpkin_dude_run"),
               "Doctor": get_images("doc_run_anim")}
-print(characters)
 death_frames = []
 for i in os.listdir("assets/death_explosion"):
     image = pygame.image.load("assets/death_explosion/" + i)
@@ -531,7 +530,7 @@ def handle_menu_input(position, start_rect, quit_rect, shop_rect):
 
 
 def reset_game(reset_score=True):
-    global coins, tiles_up, tiles_down, enemies, fireballs, player, coins_count, wall_render_delta, score, current_wall_images
+    global coins, tiles_up, tiles_down, enemies, fireballs, player, coins_count, wall_render_delta, score, current_wall_images, show_hint, hint_delta
 
     coins = []
     wall_render_delta = 0
@@ -549,24 +548,17 @@ def reset_game(reset_score=True):
     tiles_up = deque()
     tiles_down = deque()
 
-    if reset_score:
-        for i in range(4):
-            up = choices(ALL_TILES, k=1)[0]((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
-                                             TILE_HEIGHT * 2))
-            down = choices(ALL_TILES, k=1)[0]((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
-                                               SCREEN_HEIGHT - TILE_HEIGHT * 2))
+    show_hint = True
+    hint_delta = 0
 
-            tiles_up.append(up)
-            tiles_down.append(down)
-    else:
-        for i in range(4):
-            up = NormalTile((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH - wall_render_delta,
-                             TILE_HEIGHT * 2))
-            down = NormalTile((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH - wall_render_delta,
-                               SCREEN_HEIGHT - TILE_HEIGHT * 2))
+    for i in range(4):
+        up = NormalTile((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH - wall_render_delta,
+                         TILE_HEIGHT * 2))
+        down = NormalTile((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH - wall_render_delta,
+                           SCREEN_HEIGHT - TILE_HEIGHT * 2))
 
-            tiles_up.append(up)
-            tiles_down.append(down)
+        tiles_up.append(up)
+        tiles_down.append(down)
 
 
 class Player(pygame.sprite.Sprite):
@@ -593,7 +585,7 @@ class Player(pygame.sprite.Sprite):
         self.collided = False
         self.flown = False
 
-        self.gravity_change_delta = 0.3
+        self.gravity_change_delta = 0.35
         self.prev_gravity_change = -1
 
     def load_frames(self):
@@ -1122,6 +1114,7 @@ if __name__ == "__main__":
     coins = []
     coins_count = 0
     high_score = 0
+    selected_skin = "Lizard"
     prev_show_coin_frame_time = -1
     current_show_coin_frame = -1
     show_coin_frames = Coin.images
@@ -1160,6 +1153,9 @@ if __name__ == "__main__":
     current_reviving_smoke_index = -1
     reviving_smoke_pos = (-1, -1)
     prev_reviving_smoke_animation_time = -1
+
+    show_hint = True
+    hint_delta = 0
 
     # Game loop
     running = True
@@ -1313,14 +1309,14 @@ if __name__ == "__main__":
 
                 wall_render_delta = 0
 
-            if score % 10 == 0 and score != 0 and not is_bossfight:
+            if score % 20 == 0 and score != 0 and not is_bossfight:
                 is_bossfight = True
                 bossfight_time = time()
                 player.gravity_change_delta = 0.2
 
             if is_bossfight and time() - bossfight_time > BOSSFIGHT_TIME:
                 is_bossfight = False
-                player.gravity_change_delta = 0.3
+                player.gravity_change_delta = 0.35
                 score += 1
 
             to_pop = []
@@ -1385,6 +1381,16 @@ if __name__ == "__main__":
                                                                COINS_APPEND_CHANCE) == COINS_APPEND_CHANCE and not is_bossfight:
                 coins.append(Coin(randint(SCREEN_WIDTH, 2 * SCREEN_WIDTH),
                                   randint(tiles_up[0].rect.bottom, tiles_down[0].rect.top - 1)))
+
+            if show_hint:
+                font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 30)
+                hint_text = font.render("Click to change gravity", True, "white")
+                hint_text1 = font.render("You can also double jump with a delay.", True, "gray")
+                screen.blit(hint_text, (200 - hint_delta, TILE_HEIGHT * 5))
+                screen.blit(hint_text1, (200 - hint_delta, TILE_HEIGHT * 5 + hint_text.get_height()))
+                if hint_delta >= 1000:
+                    show_hint = False
+                hint_delta += 4
 
             # Animation
             player.change_image()
