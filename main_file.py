@@ -9,7 +9,77 @@ import json
 import math
 import os
 
+
+def get_images(contains=""):
+    images = []
+    for i in os.listdir("assets/frames"):
+        if contains in i:
+            image = pygame.image.load("assets/frames/" + i)
+            images.append(image)
+    return images
+
+
 game_state = GAME_STATE_MENU
+characters = json.load(open("characters.json"))
+obtained_characters = json.load(open("obtained.json"))
+characters_list = ["Lizard", "Female Lizard", "Dwarf", "Knight", "Female Knight", "Skeleton", "Elf", "Pumpkin Dude", "Doctor"]
+all_images = {"Lizard": get_images("lizard_m_run"), "Female Lizard": get_images("lizard_f_run"),
+              "Dwarf": get_images("dwarf_f_run"), "Knight": get_images("knight_m_run"),
+              "Female Knight": get_images("knight_f_run"), "Skeleton": get_images("skelet_run"),
+              "Elf": get_images("elf_f_run"), "Pumpkin Dude": get_images("pumpkin_dude_run"),
+              "Doctor": get_images("doc_run_anim")}
+print(characters)
+death_frames = []
+for i in os.listdir("assets/death_explosion"):
+    image = pygame.image.load("assets/death_explosion/" + i)
+    death_frames.append(pygame.transform.scale(image, (image.get_width() * ENLARGING_COEFFICIENT,
+                                                       image.get_height() * ENLARGING_COEFFICIENT)))
+
+
+def draw_skins_avatar(image, title, description, price, bought=True):
+    screen.fill("black")
+
+    background_image = pygame.image.load("assets/images/main_menu.png")
+    background_image = pygame.transform.scale(background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+    screen.blit(background_image, (0, 0))
+
+    exit_button_image = pygame.image.load("assets/buttons/exit_button.png")
+    exit_button_image = pygame.transform.scale(exit_button_image, (32, 32))
+    screen.blit(exit_button_image, (10, 10))
+
+    screen.blit(image, (40, SCREEN_HEIGHT // 2 - image.get_height() // 2))
+
+    font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 42)
+    title_text = font.render(title, True, "white")
+    screen.blit(title_text, (40 + image.get_width() + 40 + (SCREEN_WIDTH - (40 + image.get_width() + 40)) // 2 - title_text.get_width() // 2,
+                             40))
+
+    font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 28)
+    text_line_height = None
+    for i, text_data in enumerate(description.split("\n")):
+        row_text = font.render(text_data, True, "gray")
+        screen.blit(row_text, (40 + image.get_width() + 40, 40 + title_text.get_height() + 20 + i * (row_text.get_height() + 1)))
+        text_line_height = 40 + title_text.get_height() + 20 + i * (row_text.get_height() + 1)
+
+    price_text = font.render("Price: ", True, "orange")
+    screen.blit(price_text, (40 + image.get_width() + 40, text_line_height + 40))
+
+    coins_icon = Coin.images[0]
+    screen.blit(coins_icon, (40 + image.get_width() + 40 + price_text.get_width() + 10, text_line_height + 40))
+    coins_text = font.render(str(price), True, "white")
+    screen.blit(coins_text, (40 + image.get_width() + 40 + price_text.get_width() + 10 + coins_icon.get_width() + 10, text_line_height + 40))
+    coins_text_right = 40 + image.get_width() + 40 + price_text.get_width() + 10 + coins_icon.get_width() + 10
+
+    font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 32)
+    if not bought:
+        buy_button = font.render("Buy", True, "lime")
+    else:
+        if selected_skin == title:
+            buy_button = font.render("Selected", True, "gray")
+        else:
+            buy_button = font.render("Select", True, pygame.Color((0, 200, 0)))
+    screen.blit(buy_button, (coins_text_right + coins_text.get_width() * 3 + 10, text_line_height + 40))
+    return pygame.Rect(coins_text_right + coins_text.get_width() * 3 + 10, text_line_height + 40, buy_button.get_width(), buy_button.get_height())
 
 
 def draw_upgrade_menu():
@@ -193,7 +263,7 @@ def apply_upgrades():
 
 
 def game_over():
-    global game_state, heart_up, heart
+    global game_state, heart_up, heart, current_death_animation_index
 
     save_data()
 
@@ -203,8 +273,7 @@ def game_over():
         reset_game(reset_score=False)
         return
 
-    game_state = GAME_STATE_MENU
-    reset_game()
+    current_death_animation_index = 0
 
 
 def draw_shop():
@@ -272,6 +341,7 @@ def buy_upgrade(upgrade_type, can_upgrade):
 
 
 def shop():
+    global coins_count, selected_skin
     running = True
     upgrade_button_rect, skins_button_rect, exit_button_rect = draw_shop()
     upgrade_menu_exit_button_rect = None
@@ -284,11 +354,35 @@ def shop():
     can_upgrade_heart = False
     can_upgrade_money_mult = False
 
-    shop_state = 0
+    current_skin_animation_index = 0
+    current_title = "Lizard"
+    images = []
+    for i in all_images[current_title]:
+        images.append(pygame.transform.scale(i, (i.get_width() * 5, i.get_height() * 5)))
+    data = characters
 
-    while running:
+    shop_state = 0
+    current_skin_animation_index = 0
+    prev_skin_animation_time = -1
+    current_skin_animation_image_index = 0
+    skin_exit_button = pygame.Rect(10, 10, 32, 32)
+    buy_button = None
+
+    image = pygame.image.load("assets/buttons/left_button.png")
+    left_button = pygame.transform.scale(image, (32, 32))
+    left_button_rect = pygame.Rect(2, SCREEN_HEIGHT // 2 - left_button.get_height() // 2, left_button.get_width(), left_button.get_height())
+
+    image = pygame.image.load("assets/buttons/right_button.png")
+    right_button = pygame.transform.scale(image, (32, 32))
+    right_button_rect = pygame.Rect(SCREEN_WIDTH - right_button.get_width() - 2, SCREEN_HEIGHT // 2 - right_button.get_height() // 2, right_button.get_width(),
+                                   right_button.get_height())
+
+    this_running = True
+
+    while this_running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                save_data()
                 pygame.quit()
                 exit()
 
@@ -302,13 +396,12 @@ def shop():
                         pygame.display.update()
 
                     elif skins_button_rect.collidepoint(mouse_pos):
-                        print("Кнопка скинов нажата")
+                        shop_state = 2
                         pass
                     elif exit_button_rect.collidepoint(mouse_pos):
                         global game_state
                         game_state = GAME_STATE_MENU
-                        running = False
-                        pygame.time.delay(50)
+                        return
 
                 elif shop_state == 1:
                     if upgrade_menu_exit_button_rect.collidepoint(mouse_pos):
@@ -328,10 +421,43 @@ def shop():
                     elif money_mult_icon_rect.collidepoint(mouse_pos):
                         buy_upgrade("money_mult_up", can_upgrade_money_mult)
                         upgrade_menu_exit_button_rect, heart_icon_rect, money_chance_icon_rect, boss_time_icon_rect, money_mult_icon_rect, can_upgrade_money_chance, can_upgrade_boss_time, can_upgrade_heart, can_upgrade_money_mult = draw_upgrade_menu()
+                elif shop_state == 2:
+                    if buy_button.collidepoint(mouse_pos):
+                        if not obtained_characters[current_title] and coins_count - data[current_title][1] >= 0:
+                            obtained_characters[current_title] = True
+                            coins_count -= data[current_title][1]
+                        elif obtained_characters[current_title]:
+                            selected_skin = current_title
+                            player.load_frames()
+                    elif skin_exit_button.collidepoint(mouse_pos):
+                        shop_state = 0
+                    elif left_button_rect.collidepoint(mouse_pos):
+                        current_skin_animation_index = (current_skin_animation_index - 1) % len(characters)
+                        current_title = characters_list[current_skin_animation_index]
+                        current_skin_animation_image_index = 0
+                        images = []
+                        for i in all_images[current_title]:
+                            images.append(pygame.transform.scale(i, (i.get_width() * 5, i.get_height() * 5)))
+                    elif right_button_rect.collidepoint(mouse_pos):
+                        current_skin_animation_index = (current_skin_animation_index + 1) % len(characters)
+                        current_title = characters_list[current_skin_animation_index]
+                        current_skin_animation_image_index = 0
+                        images = []
+                        for i in all_images[current_title]:
+                            images.append(pygame.transform.scale(i, (i.get_width() * 5, i.get_height() * 5)))
 
         if shop_state == 0:
             upgrade_button_rect, skins_button_rect, exit_button_rect = draw_shop()
+        elif shop_state == 2:
+            buy_button = draw_skins_avatar(images[current_skin_animation_image_index], current_title, data[current_title][0], data[current_title][1], bought=obtained_characters[current_title])
+            if time() - prev_skin_animation_time > 0.1:
+                current_skin_animation_image_index = (current_skin_animation_image_index + 1) % len(images)
+                prev_skin_animation_time = time()
+            screen.blit(left_button, (left_button_rect.x, left_button_rect.y))
+            screen.blit(right_button, (right_button_rect.x, right_button_rect.y))
+
         pygame.display.update()
+        clock.tick(30)
 
 
 def draw_main_menu():
@@ -346,14 +472,15 @@ def draw_main_menu():
     title_text = font.render("Gravity Jumper", True, "white")
     title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 4))
 
-    start_text = font.render("Play", True, "white")
+    font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 40)
+    start_text = font.render("Play", True, "gray")
     start_rect = start_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
 
-    shop_text = font.render("Shop", True, "white")
-    shop_rect = shop_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100))
+    shop_text = font.render("Shop", True, "gray")
+    shop_rect = shop_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT * 3 // 5))
 
-    quit_text = font.render("Quit", True, "white")
-    quit_rect = quit_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT * 3 // 4))
+    quit_text = font.render("Quit", True, "gray")
+    quit_rect = quit_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100))
 
     screen.blit(title_text, title_rect)
     screen.blit(start_text, start_rect)
@@ -381,23 +508,23 @@ def draw_main_menu():
     return start_rect, quit_rect, shop_rect
 
 
-def handle_menu_input(event, start_rect, quit_rect, shop_rect):
+def handle_menu_input(position, start_rect, quit_rect, shop_rect):
     global game_state, heart, heart_up
 
-    if event.type == pygame.MOUSEBUTTONDOWN:
-        mouse_pos = event.pos
+    new_mouse_pos = position
 
-        if start_rect.collidepoint(mouse_pos):
-            if heart_up:
-                heart = True
-            game_state = GAME_STATE_PLAYING
-            reset_game()
-        elif quit_rect.collidepoint(mouse_pos):
-            pygame.quit()
-            exit()
-        elif GAME_STATE_SHOP == 2 and shop_rect.collidepoint(mouse_pos):
-            game_state = GAME_STATE_SHOP
-            shop()
+    if start_rect.collidepoint(new_mouse_pos):
+        if heart_up:
+            heart = True
+        game_state = GAME_STATE_PLAYING
+        reset_game()
+    elif quit_rect.collidepoint(new_mouse_pos):
+        save_data()
+        pygame.quit()
+        exit()
+    elif shop_rect.collidepoint(new_mouse_pos):
+        game_state = GAME_STATE_SHOP
+        shop()
 
 
 def reset_game(reset_score=True):
@@ -418,14 +545,25 @@ def reset_game(reset_score=True):
     current_wall_images = deque(choices(wall_images, k=4))
     tiles_up = deque()
     tiles_down = deque()
-    for i in range(4):
-        up = choices(ALL_TILES, k=1)[0]((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
-                                         TILE_HEIGHT * 2))
-        down = choices(ALL_TILES, k=1)[0]((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
-                                           SCREEN_HEIGHT - TILE_HEIGHT * 2))
 
-        tiles_up.append(up)
-        tiles_down.append(down)
+    if reset_score:
+        for i in range(4):
+            up = choices(ALL_TILES, k=1)[0]((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
+                                             TILE_HEIGHT * 2))
+            down = choices(ALL_TILES, k=1)[0]((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
+                                               SCREEN_HEIGHT - TILE_HEIGHT * 2))
+
+            tiles_up.append(up)
+            tiles_down.append(down)
+    else:
+        for i in range(4):
+            up = NormalTile((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH - wall_render_delta,
+                             TILE_HEIGHT * 2))
+            down = NormalTile((i * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH - wall_render_delta,
+                               SCREEN_HEIGHT - TILE_HEIGHT * 2))
+
+            tiles_up.append(up)
+            tiles_down.append(down)
 
 
 class Player(pygame.sprite.Sprite):
@@ -435,23 +573,7 @@ class Player(pygame.sprite.Sprite):
         # Generating frames
         self.frames = []
         self.reversed_frames = []
-        for file_name in os.listdir("assets/frames"):
-            if "lizard_m" in file_name:
-                self.frames.append(pygame.image.load(f"assets/frames/{file_name}"))
-                self.reversed_frames.append(pygame.image.load(f"assets/frames/{file_name}"))
-
-                image_width, image_height = self.frames[-1].get_width(), self.frames[-1].get_height()
-                self.frames[-1] = pygame.transform.scale(self.frames[-1],
-                                                         (image_width * ENLARGING_COEFFICIENT,
-                                                          image_height * ENLARGING_COEFFICIENT))
-
-                self.reversed_frames[-1] = pygame.transform.scale(self.reversed_frames[-1],
-                                                                  (image_width * ENLARGING_COEFFICIENT,
-                                                                   image_height * ENLARGING_COEFFICIENT))
-
-                self.reversed_frames[-1] = pygame.transform.flip(self.reversed_frames[-1], False, True)
-                self.frames[-1].set_colorkey((0, 0, 0))
-                self.reversed_frames[-1].set_colorkey((0, 0, 0))
+        self.load_frames()
 
         # Setting positions
         self.image = self.frames[0]
@@ -470,6 +592,27 @@ class Player(pygame.sprite.Sprite):
 
         self.gravity_change_delta = 0.3
         self.prev_gravity_change = -1
+
+    def load_frames(self):
+        global selected_skin
+        self.frames = []
+        self.reversed_frames = []
+
+        for i in all_images[selected_skin]:
+            self.frames.append(i)
+            self.reversed_frames.append(i)
+            image_width, image_height = self.frames[-1].get_width(), self.frames[-1].get_height()
+            self.frames[-1] = pygame.transform.scale(self.frames[-1],
+                                                     (image_width * ENLARGING_COEFFICIENT,
+                                                      image_height * ENLARGING_COEFFICIENT))
+
+            self.reversed_frames[-1] = pygame.transform.scale(self.reversed_frames[-1],
+                                                              (image_width * ENLARGING_COEFFICIENT,
+                                                               image_height * ENLARGING_COEFFICIENT))
+
+            self.reversed_frames[-1] = pygame.transform.flip(self.reversed_frames[-1], False, True)
+            self.frames[-1].set_colorkey((0, 0, 0))
+            self.reversed_frames[-1].set_colorkey((0, 0, 0))
 
     def change_image(self):
         if time() - self.prev_time < self.animation_delta:
@@ -499,7 +642,7 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.rect.move(self.vx, self.vy)
 
         # Check if player has flown out of the screen
-        if self.rect.y > SCREEN_HEIGHT - 10 or self.rect.y < self.rect.height // 2 - TILE_HEIGHT * 2:
+        if self.rect.y > SCREEN_HEIGHT - 10 or self.rect.y < 0:
             game_over()
 
     def tiles_check(self):
@@ -511,7 +654,7 @@ class Player(pygame.sprite.Sprite):
             collided = True
             # Handle special tiles
             if isinstance(tile, ElectricalTile):
-                if tile.timer >= 5:
+                if tile.activated:
                     game_over()
             elif isinstance(tile, BouncingTile):
                 if self.flown:
@@ -536,7 +679,7 @@ class Player(pygame.sprite.Sprite):
             collided1 = True
             # Handle special tiles
             if isinstance(tile, ElectricalTile):
-                if tile.timer >= 5:
+                if tile.activated:
                     game_over()
             elif isinstance(tile, BouncingTile):
                 tile.bounced = True
@@ -643,6 +786,7 @@ class ElectricalTile(Tile):
         super().__init__(position, images)
         self.image = images[self.timer]
         self.current_image_index = self.timer
+        self.activated = False
 
     def change_image(self):
         if time() - self.prev_time < self.animation_delta:
@@ -651,16 +795,26 @@ class ElectricalTile(Tile):
         self.timer += 1
         if self.timer >= 5:
             self.animation_delta = ACTIVATED_ELECTRICAL_TILE_ANIMATION_DELTA
+            self.activated = True
         if self.timer >= 9:
             self.animation_delta = TILE_ANIMATION_DELTA
             self.timer = 1
-
-        self.current_image_index = (self.current_image_index + 1) % len(self.images)
+            self.activated = False
+        self.current_image_index = self.timer - 1
         self.image = self.images[self.current_image_index]
         self.rect = pygame.Rect(self.rect.x, self.rect.y, self.image.get_width(), self.image.get_height())
 
     def move(self, x, y):
         self.rect = self.rect.move(x, y)
+
+    def draw_a_hitbox(self):
+        if self.activated:
+            pygame.draw.rect(screen, "green", self.rect, width=1)
+        else:
+            pygame.draw.rect(screen, "red", self.rect, width=1)
+        font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 30)
+        text = font.render(str(self.timer), True, "white")
+        screen.blit(text, (self.rect.x, self.rect.y))
 
 
 class NormalTile(Tile):
@@ -907,7 +1061,9 @@ def reload_images():
 
 def save_data():
     with open("game_save.json", "w") as f:
-        json.dump({"coins": coins_count, "high_score": max(score, high_score)}, f)
+        json.dump({"coins": coins_count, "high_score": max(score, high_score), "selected": selected_skin}, f)
+    with open("obtained.json", "w") as f:
+        json.dump(obtained_characters, f)
 
 
 if __name__ == "__main__":
@@ -932,9 +1088,6 @@ if __name__ == "__main__":
                                                   (WALL_IMAGE_WIDTH, WALL_IMAGE_HEIGHT)))
 
     # Adding sprites
-    player_sprite = pygame.sprite.Group()
-    player = Player()
-    player_sprite.add(player)
 
     tiles_up = deque()
     tiles_down = deque()
@@ -950,9 +1103,13 @@ if __name__ == "__main__":
             all_data = json.load(f)
             coins_count += all_data["coins"]
             high_score = all_data["high_score"]
-            print(coins_count)
+            selected_skin = all_data["selected"]
     except Exception as e:
         print("Не найден файл сохранения. Возможно, он был перенесён.")
+
+    player_sprite = pygame.sprite.Group()
+    player = Player()
+    player_sprite.add(player)
 
     ALL_TILES = [NormalTile, BouncingTile, ElectricalTile]
 
@@ -963,6 +1120,8 @@ if __name__ == "__main__":
     is_bossfight = False
     bossfight_time = -1
 
+    current_death_animation_index = -1
+
     # Game loop
     running = True
     while running:
@@ -970,10 +1129,10 @@ if __name__ == "__main__":
             if event.type == pygame.QUIT:
                 running = False
                 break
-
             if game_state == GAME_STATE_MENU:
                 start_rect, quit_rect, shop_rect = draw_main_menu()
-                handle_menu_input(event, start_rect, quit_rect, shop_rect)
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    handle_menu_input(event.pos, start_rect, quit_rect, shop_rect)
             elif game_state == GAME_STATE_PLAYING:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     player.reverse_jump()
@@ -984,12 +1143,15 @@ if __name__ == "__main__":
             screen.fill("black")
             for i in range(len(current_wall_images)):
                 screen.blit(current_wall_images[i], (i * WALL_IMAGE_WIDTH - wall_render_delta, 0))
+
             for i in tiles_up:
-                i.rect.x -= WALLS_SPEED
+                if current_death_animation_index == -1:
+                    i.rect.x -= WALLS_SPEED
                 i.change_image()
                 i.draw()
             for i in tiles_down:
-                i.rect.x -= WALLS_SPEED
+                if current_death_animation_index == -1:
+                    i.rect.x -= WALLS_SPEED
                 i.change_image()
                 i.draw()
 
@@ -1014,13 +1176,30 @@ if __name__ == "__main__":
                 else:
                     screen.blit(heart_empty_image_resized, (heart_x, heart_y))
 
-            player_sprite.draw(screen)
-            player.move()
-            player.tiles_check()
-            player.coins_check()
+            if current_death_animation_index == -1:
+                player_sprite.draw(screen)
+                player.move()
+                player.tiles_check()
+                player.coins_check()
+            else:
+                blit_x, blit_y = player.rect.x, player.rect.y
+                if player.rect.y > SCREEN_HEIGHT - player.rect.height:
+                    blit_y = SCREEN_HEIGHT - player.rect.height
+                    blit_x = -15
+                elif player.rect.y < 0:
+                    blit_y = -50
+                    blit_x = -15
+                screen.blit(death_frames[current_death_animation_index], (blit_x, blit_y))
+                current_death_animation_index += 1
+                if current_death_animation_index == len(death_frames):
+                    current_death_animation_index = -1
+                    game_state = GAME_STATE_MENU
+                    reset_game()
+                clock.tick(30)
 
             # Walls rendering
-            wall_render_delta += WALLS_SPEED
+            if current_death_animation_index == -1:
+                wall_render_delta += WALLS_SPEED
             if wall_render_delta >= WALL_IMAGE_WIDTH:
                 current_wall_images.popleft()
                 current_wall_images.append(choices(wall_images, k=1)[0])
@@ -1045,7 +1224,7 @@ if __name__ == "__main__":
                                      TILE_HEIGHT * 2))
                     down = NormalTile((3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - TILE_WIDTH,
                                        SCREEN_HEIGHT - TILE_HEIGHT * 2))
-                    if randint(1, 100) >= 40:
+                    if randint(1, 100) >= 20:
                         if randint(1, 2) == 1:
                             x = randint(
                                 3 * WALL_IMAGE_WIDTH + WALL_IMAGE_WIDTH // 2 - FireEnemy.images[0].get_width(),
@@ -1070,7 +1249,6 @@ if __name__ == "__main__":
                             enemies.add(
                                 KillingEnemy((x, tiles_down[0].rect.top - KillingEnemy.images[0].get_height()),
                                              False))
-                        print("a")
 
                     if randint(1, 1) == 1:
                         if 2 < len(enemies.sprites()):
@@ -1084,7 +1262,7 @@ if __name__ == "__main__":
                                         if randint(1, 2) == 1:
                                             fireballs.add(
                                                 FireBall((i.rect.x, i.rect.y),
-                                                         (randint(-10, -1), dy // abs(dy) * 5)))
+                                                         (-10, dy // abs(dy) * 5)))
                                         else:
                                             fireballs.add(FireBall((i.rect.x, i.rect.y), (-10, 0)))
                                 pos += 1
@@ -1122,33 +1300,34 @@ if __name__ == "__main__":
 
             player.enemies_check()
 
-            to_pop = []
-            for i in fireballs:
-                i.move()
-                i.change_animation()
-                if i.rect.x + i.rect.width < 0:
-                    to_pop.append(i)
+            if current_death_animation_index == -1:
+                to_pop = []
+                for i in fireballs:
+                    i.move()
+                    i.change_animation()
+                    if i.rect.x + i.rect.width < 0:
+                        to_pop.append(i)
 
-            delta = 0
-            for i in to_pop:
-                fireballs.remove(i)
-                delta += 1
+                delta = 0
+                for i in to_pop:
+                    fireballs.remove(i)
+                    delta += 1
 
-            fireballs.draw(screen)
-            player.fireballs_check()
+                fireballs.draw(screen)
+                player.fireballs_check()
 
-            to_pop = []
-            for coin in coins:
-                if coin.rect.x < 0:
-                    to_pop.append(coin)
+                to_pop = []
+                for coin in coins:
+                    if coin.rect.x < 0:
+                        to_pop.append(coin)
 
-            for to_pop in []:
-                coins.remove(to_pop)
+                for to_pop in []:
+                    coins.remove(to_pop)
 
-            for coin in coins:
-                coin.rect.x -= WALLS_SPEED
-                coin.change_image()
-                coin.draw()
+                for coin in coins:
+                    coin.rect.x -= WALLS_SPEED
+                    coin.change_image()
+                    coin.draw()
 
             if len(coins) < COINS_VISIBILITY_LIMIT and randint(1,
                                                                COINS_APPEND_CHANCE) == COINS_APPEND_CHANCE and not is_bossfight:
@@ -1190,7 +1369,7 @@ if __name__ == "__main__":
 
         elif game_state == GAME_STATE_MENU:
             start_rect, quit_rect, shop_rect = draw_main_menu()
-            handle_menu_input(event, start_rect, quit_rect, shop_rect)
+            pass
 
         if game_state == GAME_STATE_MENU:
             if time() - prev_main_menu_coin_animation_time > 0.1:
@@ -1203,5 +1382,3 @@ if __name__ == "__main__":
         # Display drawing
         clock.tick(FPS)
         pygame.display.flip()
-
-    save_data()
