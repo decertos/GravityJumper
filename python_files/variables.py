@@ -22,6 +22,6 @@ prev_main_menu_coin_animation_time = -1
 current_main_menu_coin_frame = 0
 heart = False
 HEART_UPGRADE_COST = 500
-MONEY_CHANCE_UPGRADE_COSTS = [50, 150, 250]
+MONEY_CHANCE_UPGRADE_COSTS = [100, 200, 300]
 BOSS_TIME_UPGRADE_COSTS = [100, 300, 500]
 MONEY_MULT_UPGRADE_COST = 500
