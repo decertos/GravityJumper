@@ -916,6 +916,7 @@ if __name__ == "__main__":
     SCREEN_WIDTH, SCREEN_HEIGHT = WALL_WIDTH * 3 * ENLARGING_COEFFICIENT, WALL_HEIGHT * ENLARGING_COEFFICIENT
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
+    initialize_shop_data()
     apply_upgrades()
 
     heart_full_image = pygame.image.load("assets/frames/ui_heart_full.png")
