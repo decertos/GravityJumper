@@ -262,7 +262,7 @@ def apply_upgrades():
 
 
 def game_over():
-    global game_state, heart_up, heart, current_death_animation_index, current_reviving_smoke_index, reviving_angel_sprite
+    global game_state, heart_up, heart, current_death_animation_index, current_reviving_smoke_index, reviving_angel_sprite, high_score
 
     save_data()
 
@@ -276,6 +276,7 @@ def game_over():
 
     reviving_angel_sprite = pygame.sprite.Group()
     current_death_animation_index = 0
+    high_score = max(score, high_score)
 
 
 def draw_shop():
@@ -487,6 +488,11 @@ def draw_main_menu():
     screen.blit(title_text, title_rect)
     screen.blit(start_text, start_rect)
     screen.blit(quit_text, quit_rect)
+
+    font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 25)
+    high_score_text = font.render(f"High score: {high_score}", True, "orange")
+    screen.blit(high_score_text, (SCREEN_WIDTH // 2 - high_score_text.get_width() // 2,
+                                  title_rect.bottom + 5))
 
     if GAME_STATE_SHOP == 2:
         screen.blit(shop_text, shop_rect)
@@ -1213,6 +1219,16 @@ if __name__ == "__main__":
                 else:
                     screen.blit(heart_empty_image_resized, (heart_x, heart_y))
 
+            if show_hint:
+                font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 30)
+                hint_text = font.render("Click to change gravity", True, "white")
+                hint_text1 = font.render("You can also double jump with a delay.", True, "gray")
+                screen.blit(hint_text, (200 - hint_delta, TILE_HEIGHT * 5))
+                screen.blit(hint_text1, (200 - hint_delta, TILE_HEIGHT * 5 + hint_text.get_height()))
+                if hint_delta >= 1000:
+                    show_hint = False
+                hint_delta += 4
+
             if current_death_animation_index == -1:
                 player_sprite.draw(screen)
                 player.move()
@@ -1233,6 +1249,7 @@ if __name__ == "__main__":
                     game_state = GAME_STATE_MENU
                     reset_game()
                 clock.tick(30)
+
 
             # Walls rendering
             if current_death_animation_index == -1:
@@ -1382,16 +1399,6 @@ if __name__ == "__main__":
                 coins.append(Coin(randint(SCREEN_WIDTH, 2 * SCREEN_WIDTH),
                                   randint(tiles_up[0].rect.bottom, tiles_down[0].rect.top - 1)))
 
-            if show_hint:
-                font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 30)
-                hint_text = font.render("Click to change gravity", True, "white")
-                hint_text1 = font.render("You can also double jump with a delay.", True, "gray")
-                screen.blit(hint_text, (200 - hint_delta, TILE_HEIGHT * 5))
-                screen.blit(hint_text1, (200 - hint_delta, TILE_HEIGHT * 5 + hint_text.get_height()))
-                if hint_delta >= 1000:
-                    show_hint = False
-                hint_delta += 4
-
             # Animation
             player.change_image()
 
@@ -1400,6 +1407,7 @@ if __name__ == "__main__":
             rendered = font.render(f"Score: {score}", True, (255, 255, 255))
             screen.blit(rendered, (SCREEN_WIDTH - rendered.get_width() - 5 * ENLARGING_COEFFICIENT,
                                    rendered.get_height() - 5 * ENLARGING_COEFFICIENT))
+
 
             if time() - prev_show_coin_frame_time > COIN_ANIMATION_DELTA:
                 current_show_coin_frame = (current_show_coin_frame + 1) % len(show_coin_frames)
