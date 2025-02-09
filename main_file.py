@@ -11,6 +11,7 @@ import os
 
 
 def get_images(contains=""):
+    # A function to get sprite images
     images = []
     for i in os.listdir("assets/frames"):
         if contains in i:
@@ -19,15 +20,44 @@ def get_images(contains=""):
     return images
 
 
+# Reloading save files is they are deleted
+characters_list = ["Lizard", "Female Lizard", "Dwarf", "Knight", "Female Knight", "Skeleton", "Elf", "Pumpkin Dude",
+                   "Doctor"]
+if not os.path.isfile("saves/obtained.json"):
+    with open("saves/obtained.json", "w", encoding="UTF-8") as f:
+        dictionary = {i: False for i in characters_list}
+        dictionary["Lizard"] = True
+        json.dump(dictionary, f)
+if not os.path.isfile("saves/game_save.json"):
+    with open("saves/game_save.json", "w", encoding="UTF-8") as f:
+        json.dump({"coins": 0, "high_score": 0, "selected": "Lizard"}, f)
+if not os.path.isfile("saves/shop_save.json"):
+    with open("saves/shop_save.json", "w", encoding="UTF-8") as f:
+        json.dump({"heart_up": False, "money_chance_up": 0, "boss_time_up": 0, "money_mult_up": False}, f)
+if not os.path.isfile("saves/characters.json"):
+    with open("saves/characters.json", "w", encoding="UTF-8") as f:
+        json.dump({"Lizard": ["Just a normal lizard.\nIt is the first character\nthat you have!", 0],
+                   "Doctor": ["Who knows what he carries\nwith himself?\nMaybe it's something\ndangerous!", 120],
+                   "Skeleton": ["Is it cute or scary?\nSpooky scary skeletons...", 70],
+                   "Dwarf": ["A cute dwarf. It will\nnot harm you. Buy it!", 50],
+                   "Elf": ["It is a kind girl\nShe's an elf.\nShe likes music and dancing.", 90],
+                   "Pumpkin Dude": ["I think you don't want\nto meet him at night...", 100],
+                   "Female Lizard": ["It's a lizard like\nthe one you have, but\nit's recoloured!", 50],
+                   "Knight": ["A brave knight! He can\nhelp you to jump... Maybe,\nyou won't spot the difference.", 60],
+                   "Female Knight": ["She's as brave as another\nversion. But she has a red tail.", 60]}, f)
+
+# Game state set
 game_state = GAME_STATE_MENU
-characters = json.load(open("characters.json"))
-obtained_characters = json.load(open("obtained.json"))
-characters_list = ["Lizard", "Female Lizard", "Dwarf", "Knight", "Female Knight", "Skeleton", "Elf", "Pumpkin Dude", "Doctor"]
+# Setting characters
+characters = json.load(open("saves/characters.json"))
+obtained_characters = json.load(open("saves/obtained.json"))
 all_images = {"Lizard": get_images("lizard_m_run"), "Female Lizard": get_images("lizard_f_run"),
               "Dwarf": get_images("dwarf_f_run"), "Knight": get_images("knight_m_run"),
               "Female Knight": get_images("knight_f_run"), "Skeleton": get_images("skelet_run"),
               "Elf": get_images("elf_f_run"), "Pumpkin Dude": get_images("pumpkin_dude_run"),
               "Doctor": get_images("doc_run_anim")}
+
+# Death animation frames
 death_frames = []
 for i in os.listdir("assets/death_explosion"):
     image = pygame.image.load("assets/death_explosion/" + i)
@@ -36,6 +66,7 @@ for i in os.listdir("assets/death_explosion"):
 
 
 def draw_skins_avatar(image, title, description, price, bought=True):
+    # A tab for a skin shop
     screen.fill("black")
 
     background_image = pygame.image.load("assets/images/main_menu.png")
@@ -50,14 +81,16 @@ def draw_skins_avatar(image, title, description, price, bought=True):
 
     font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 42)
     title_text = font.render(title, True, "white")
-    screen.blit(title_text, (40 + image.get_width() + 40 + (SCREEN_WIDTH - (40 + image.get_width() + 40)) // 2 - title_text.get_width() // 2,
-                             40))
+    screen.blit(title_text, (
+    40 + image.get_width() + 40 + (SCREEN_WIDTH - (40 + image.get_width() + 40)) // 2 - title_text.get_width() // 2,
+    40))
 
     font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 28)
     text_line_height = None
     for i, text_data in enumerate(description.split("\n")):
         row_text = font.render(text_data, True, "gray")
-        screen.blit(row_text, (40 + image.get_width() + 40, 40 + title_text.get_height() + 20 + i * (row_text.get_height() + 1)))
+        screen.blit(row_text,
+                    (40 + image.get_width() + 40, 40 + title_text.get_height() + 20 + i * (row_text.get_height() + 1)))
         text_line_height = 40 + title_text.get_height() + 20 + i * (row_text.get_height() + 1)
 
     price_text = font.render("Price: ", True, "orange")
@@ -66,7 +99,8 @@ def draw_skins_avatar(image, title, description, price, bought=True):
     coins_icon = Coin.images[0]
     screen.blit(coins_icon, (40 + image.get_width() + 40 + price_text.get_width() + 10, text_line_height + 40))
     coins_text = font.render(str(price), True, "white")
-    screen.blit(coins_text, (40 + image.get_width() + 40 + price_text.get_width() + 10 + coins_icon.get_width() + 10, text_line_height + 40))
+    screen.blit(coins_text, (
+    40 + image.get_width() + 40 + price_text.get_width() + 10 + coins_icon.get_width() + 10, text_line_height + 40))
     coins_text_right = 40 + image.get_width() + 40 + price_text.get_width() + 10 + coins_icon.get_width() + 10
 
     font = pygame.font.Font("assets/fonts/ByteBounce.ttf", 32)
@@ -78,10 +112,12 @@ def draw_skins_avatar(image, title, description, price, bought=True):
         else:
             buy_button = font.render("Select", True, pygame.Color((0, 200, 0)))
     screen.blit(buy_button, (coins_text_right + coins_text.get_width() * 3 + 10, text_line_height + 40))
-    return pygame.Rect(coins_text_right + coins_text.get_width() * 3 + 10, text_line_height + 40, buy_button.get_width(), buy_button.get_height())
+    return pygame.Rect(coins_text_right + coins_text.get_width() * 3 + 10, text_line_height + 40,
+                       buy_button.get_width(), buy_button.get_height())
 
 
 def draw_upgrade_menu():
+    # Drawing an update menu in a shop
     screen.fill("black")
 
     background_image = pygame.image.load("assets/images/main_menu.png")
@@ -216,6 +252,7 @@ def draw_upgrade_menu():
 
 
 def initialize_shop_data():
+    # Initializing shop data if not created at the start
     default_data = {
         "heart_up": False,
         "money_chance_up": 0,
@@ -223,15 +260,16 @@ def initialize_shop_data():
         "money_mult_up": False
     }
 
-    if not os.path.exists("shop_save.json"):
-        with open("shop_save.json", "w") as f:
+    if not os.path.exists("saves/shop_save.json"):
+        with open("saves/shop_save.json", "w") as f:
             json.dump(default_data, f, indent=4)
 
 
 def apply_upgrades():
+    # Apply all upgrades
     global heart_up, COINS_APPEND_CHANCE, COINS_VISIBILITY_LIMIT, money_chance_up, money_mult_up, boss_time_up, BOSSFIGHT_TIME
     try:
-        with open("shop_save.json", "r") as f:
+        with open("saves/shop_save.json", "r") as f:
             data = json.load(f)
             heart_up = data.get("heart_up", False)
             money_chance_up = data.get("money_chance_up", 0)
@@ -262,11 +300,13 @@ def apply_upgrades():
 
 
 def game_over():
+    # Game over function
     global game_state, heart_up, heart, current_death_animation_index, current_reviving_smoke_index, reviving_angel_sprite, high_score
 
     save_data()
 
     if heart:
+        # If revival bought
         game_state = GAME_STATE_PLAYING
         heart = False
         reset_game(reset_score=False)
@@ -280,6 +320,7 @@ def game_over():
 
 
 def draw_shop():
+    # Drawing shop
     screen.fill("black")
 
     background_image = pygame.image.load("assets/images/main_menu.png")
@@ -307,9 +348,10 @@ def draw_shop():
 
 
 def buy_upgrade(upgrade_type, can_upgrade):
+    # A function to handle buying upgrades
     global coins_count, heart_up, money_chance_up, boss_time_up, money_mult_up
 
-    with open("shop_save.json", "r") as f:
+    with open("saves/shop_save.json", "r") as f:
         data = json.load(f)
 
     if upgrade_type == "heart_up" and not heart_up and can_upgrade:
@@ -336,7 +378,7 @@ def buy_upgrade(upgrade_type, can_upgrade):
             money_mult_up = True
             data["money_mult_up"] = True
 
-    with open("shop_save.json", "w") as f:
+    with open("saves/shop_save.json", "w") as f:
         json.dump(data, f, indent=4)
 
     save_data()
@@ -344,6 +386,7 @@ def buy_upgrade(upgrade_type, can_upgrade):
 
 
 def shop():
+    # The shop function
     global coins_count, selected_skin
     running = True
     upgrade_button_rect, skins_button_rect, exit_button_rect = draw_shop()
@@ -373,14 +416,21 @@ def shop():
 
     image = pygame.image.load("assets/buttons/left_button.png")
     left_button = pygame.transform.scale(image, (32, 32))
-    left_button_rect = pygame.Rect(2, SCREEN_HEIGHT // 2 - left_button.get_height() // 2, left_button.get_width(), left_button.get_height())
+    left_button_rect = pygame.Rect(2, SCREEN_HEIGHT // 2 - left_button.get_height() // 2, left_button.get_width(),
+                                   left_button.get_height())
 
     image = pygame.image.load("assets/buttons/right_button.png")
     right_button = pygame.transform.scale(image, (32, 32))
-    right_button_rect = pygame.Rect(SCREEN_WIDTH - right_button.get_width() - 2, SCREEN_HEIGHT // 2 - right_button.get_height() // 2, right_button.get_width(),
-                                   right_button.get_height())
+    right_button_rect = pygame.Rect(SCREEN_WIDTH - right_button.get_width() - 2,
+                                    SCREEN_HEIGHT // 2 - right_button.get_height() // 2, right_button.get_width(),
+                                    right_button.get_height())
 
     this_running = True
+
+    # Shop states:
+    # 0 - Main shop menu
+    # 1 - Upgrades menu
+    # 2 - Skins menu
 
     while this_running:
         for event in pygame.event.get():
@@ -452,7 +502,9 @@ def shop():
         if shop_state == 0:
             upgrade_button_rect, skins_button_rect, exit_button_rect = draw_shop()
         elif shop_state == 2:
-            buy_button = draw_skins_avatar(images[current_skin_animation_image_index], current_title, data[current_title][0], data[current_title][1], bought=obtained_characters[current_title])
+            buy_button = draw_skins_avatar(images[current_skin_animation_image_index], current_title,
+                                           data[current_title][0], data[current_title][1],
+                                           bought=obtained_characters[current_title])
             if time() - prev_skin_animation_time > 0.1:
                 current_skin_animation_image_index = (current_skin_animation_image_index + 1) % len(images)
                 prev_skin_animation_time = time()
@@ -464,6 +516,7 @@ def shop():
 
 
 def draw_main_menu():
+    # Drawing main menu
     global coins_count
     screen.fill("black")
 
@@ -517,6 +570,7 @@ def draw_main_menu():
 
 
 def handle_menu_input(position, start_rect, quit_rect, shop_rect):
+    # If a button in the main menu is pressed
     global game_state, heart, heart_up
 
     new_mouse_pos = position
@@ -536,6 +590,7 @@ def handle_menu_input(position, start_rect, quit_rect, shop_rect):
 
 
 def reset_game(reset_score=True):
+    # Start or reset game
     global coins, tiles_up, tiles_down, enemies, fireballs, player, coins_count, wall_render_delta, score, current_wall_images, show_hint, hint_delta
 
     coins = []
@@ -568,7 +623,9 @@ def reset_game(reset_score=True):
 
 
 class Player(pygame.sprite.Sprite):
+    # A normal player sprite
     def __init__(self):
+        # Creating the player
         super().__init__()
 
         # Generating frames
@@ -595,6 +652,7 @@ class Player(pygame.sprite.Sprite):
         self.prev_gravity_change = -1
 
     def load_frames(self):
+        # Load skins
         global selected_skin
         self.frames = []
         self.reversed_frames = []
@@ -616,6 +674,7 @@ class Player(pygame.sprite.Sprite):
             self.reversed_frames[-1].set_colorkey((0, 0, 0))
 
     def change_image(self):
+        # Animation
         if time() - self.prev_time < self.animation_delta:
             return
         # Setting new time
@@ -701,6 +760,7 @@ class Player(pygame.sprite.Sprite):
 
     def coins_check(self):
         global coins_count, money_mult_up
+        # Checking if a player has picked up some coins
 
         to_pop = []
         for i in range(len(coins)):
@@ -715,6 +775,7 @@ class Player(pygame.sprite.Sprite):
             delta += 1
 
     def fireballs_check(self):
+        # Checking fireball collisions
         global fireballs
 
         for i in fireballs:
@@ -722,6 +783,7 @@ class Player(pygame.sprite.Sprite):
                 game_over()
 
     def enemies_check(self):
+        # Checking enemies collision
         global enemies
 
         for i in enemies:
@@ -730,6 +792,7 @@ class Player(pygame.sprite.Sprite):
                     game_over()
 
     def reverse_jump(self):
+        # Changing gravity
         if time() - self.prev_gravity_change < self.gravity_change_delta:
             return
         self.prev_gravity_change = time()
@@ -743,11 +806,14 @@ class Player(pygame.sprite.Sprite):
         self.vy = -1
 
     def draw_a_hitbox(self):
+        # Hitbox drawing
         pygame.draw.rect(screen, pygame.Color("green"), self.rect, width=1)
 
 
 class Tile(pygame.sprite.Sprite):
+    # A base tile class
     def __init__(self, position, images):
+        # Creating the tile
         super().__init__()
         self.images = images
         self.prev_time = -1
@@ -758,6 +824,7 @@ class Tile(pygame.sprite.Sprite):
         self.rect = pygame.Rect(position[0], position[1], self.image.get_width(), self.image.get_height())
 
     def change_image(self):
+        # Animation changing
         if time() - self.prev_time < self.animation_delta:
             return
         self.prev_time = time()
@@ -767,13 +834,16 @@ class Tile(pygame.sprite.Sprite):
         self.rect = pygame.Rect(self.rect.x, self.rect.y, self.image.get_width(), self.image.get_height())
 
     def draw(self):
+        # Draw a tile
         screen.blit(self.image, (self.rect.x, self.rect.y))
 
     def draw_a_hitbox(self):
+        # Hitbox drawing
         pygame.draw.rect(screen, pygame.Color("blue"), self.rect, width=1)
 
 
 class ElectricalTile(Tile):
+    # A class for an electrical tile
     frames = []
     for file_name in os.listdir("assets/tiles_animations/electrical"):
         frames.append(pygame.transform.scale(
@@ -782,6 +852,7 @@ class ElectricalTile(Tile):
         frames[-1].set_colorkey((0, 0, 0))
 
     def __init__(self, position):
+        # Creating the tile
         images = ElectricalTile.frames
         self.timer = randint(0, 4)
         super().__init__(position, images)
@@ -790,6 +861,7 @@ class ElectricalTile(Tile):
         self.activated = False
 
     def change_image(self):
+        # Animation changing
         if time() - self.prev_time < self.animation_delta:
             return
         self.prev_time = time()
@@ -806,9 +878,11 @@ class ElectricalTile(Tile):
         self.rect = pygame.Rect(self.rect.x, self.rect.y, self.image.get_width(), self.image.get_height())
 
     def move(self, x, y):
+        # Move on the screen
         self.rect = self.rect.move(x, y)
 
     def draw_a_hitbox(self):
+        # Hitbox drawing
         if self.activated:
             pygame.draw.rect(screen, "green", self.rect, width=1)
         else:
@@ -819,16 +893,19 @@ class ElectricalTile(Tile):
 
 
 class NormalTile(Tile):
+    # A normal tile
     frames = [pygame.transform.scale(pygame.image.load("assets/tiles_animations/normal/1.png"),
                                      (TILE_WIDTH * ENLARGING_COEFFICIENT,
                                       TILE_HEIGHT * ENLARGING_COEFFICIENT))]
 
     def __init__(self, position):
+        # Creating the tile
         frames = NormalTile.frames
         super().__init__(position, frames)
 
 
 class BouncingTile(Tile):
+    # Bouncing tile class
     frames = []
     for i in os.listdir("assets/tiles_animations/bouncing"):
         frames.append(pygame.transform.scale(pygame.image.load("assets/tiles_animations/bouncing/" + i),
@@ -836,6 +913,7 @@ class BouncingTile(Tile):
                                               TILE_HEIGHT * ENLARGING_COEFFICIENT)))
 
     def __init__(self, position):
+        # Creating the tile
         frames = BouncingTile.frames
         super().__init__(position, frames)
         self.current_image_index = 0
@@ -843,6 +921,7 @@ class BouncingTile(Tile):
         self.bounced = False
 
     def change_image(self):
+        # Animation change
         if self.bounced:
             self.current_image_index += 1
             if self.current_image_index > 3:
@@ -854,6 +933,7 @@ class BouncingTile(Tile):
 
 
 class Coin(pygame.sprite.Sprite):
+    # A class for a coin
     images = []
     for i in os.listdir("assets/frames"):
         image = pygame.image.load("assets/frames/" + i)
@@ -862,6 +942,7 @@ class Coin(pygame.sprite.Sprite):
                                                          ENLARGING_COEFFICIENT * image.get_height())))
 
     def __init__(self, x, y):
+        # Creating the coin
         super().__init__()
         self.images = Coin.images
         self.image = self.images[0]
@@ -874,6 +955,7 @@ class Coin(pygame.sprite.Sprite):
         self.delta = 1
 
     def change_image(self):
+        # Animating
         if time() - self.prev_animation < self.animation_delta:
             return
         self.current_image_index = (self.current_image_index + 1) % len(self.images)
@@ -883,14 +965,18 @@ class Coin(pygame.sprite.Sprite):
         self.delta = -self.delta
 
     def draw(self):
+        # Drawing
         screen.blit(self.image, (self.rect.x, self.rect.y + self.delta))
 
     def draw_a_hitbox(self):
+        # Hitbox drawing
         pygame.draw.rect(screen, pygame.Color("yellow"), self.rect, width=1)
 
 
 class RevivingAngel(pygame.sprite.Sprite):
+    # A class for a reviving angel
     def __init__(self):
+        # Creating
         super().__init__()
         self.images = []
         for i in get_images("angel_idle"):
@@ -904,6 +990,7 @@ class RevivingAngel(pygame.sprite.Sprite):
         self.image = self.images[self.current_image_index]
 
     def change_image(self):
+        # Animation
         self.rect.x, self.rect.y = player.rect.x - 15, player.rect.y
         if time() - self.start_time > 5:
             self.kill()
@@ -915,6 +1002,7 @@ class RevivingAngel(pygame.sprite.Sprite):
 
 
 class FireEnemy(pygame.sprite.Sprite):
+    # A class for an enemy which shoots with fireballs
     images = []
     reversed_images = []
     for i in os.listdir("assets/frames"):
@@ -928,6 +1016,7 @@ class FireEnemy(pygame.sprite.Sprite):
                                                                    image.get_height() * ENLARGING_COEFFICIENT)))
 
     def __init__(self, position, reversed_image):
+        # Creating the class
         super().__init__()
 
         self.images = FireEnemy.images if not reversed_image else FireEnemy.reversed_images
@@ -938,6 +1027,7 @@ class FireEnemy(pygame.sprite.Sprite):
         self.rect = pygame.Rect(position[0], position[1], self.image.get_width(), self.image.get_height())
 
     def change_animation(self):
+        # Animating
         if time() - self.prev_animation_change < self.animation_change_rate:
             return
         self.prev_animation_change = time()
@@ -945,13 +1035,16 @@ class FireEnemy(pygame.sprite.Sprite):
         self.image = self.images[self.current_index]
 
     def move(self, x, y):
+        # Movement
         self.rect = self.rect.move(x, y)
 
     def draw_a_hitbox(self):
+        # Hitbox drawing
         pygame.draw.rect(screen, pygame.Color("red"), self.rect, width=1)
 
 
 class FireBall(pygame.sprite.Sprite):
+    # A class for a fireball
     images = []
     for i in os.listdir("assets/fireball"):
         image = pygame.image.load("assets/fireball/" + i)
@@ -960,6 +1053,7 @@ class FireBall(pygame.sprite.Sprite):
                                                      image.get_height())))
 
     def __init__(self, position, velocity):
+        # Creating the class
         super().__init__()
         self.images = []
         for i in FireBall.images:
@@ -976,6 +1070,7 @@ class FireBall(pygame.sprite.Sprite):
         self.prev_animation_time = -1
 
     def change_animation(self):
+        # Animating
         if time() - self.prev_animation_time < self.animation_delay:
             return
         self.prev_animation_time = time()
@@ -983,13 +1078,16 @@ class FireBall(pygame.sprite.Sprite):
         self.image = self.images[self.current_image]
 
     def move(self):
+        # Moving
         self.rect = self.rect.move(self.vx, self.vy)
 
     def draw_a_hitbox(self):
+        # Drawing a hitbox
         pygame.draw.rect(screen, pygame.Color("orange"), self.rect, width=1)
 
 
 class KillingEnemy(pygame.sprite.Sprite):
+    # A class for an enemy which kills when touched
     images = []
     reversed_images = []
     run_images = []
@@ -1009,6 +1107,7 @@ class KillingEnemy(pygame.sprite.Sprite):
             reversed_run_images.append(pygame.transform.flip(image, False, True))
 
     def __init__(self, position, rotation):
+        # Creating the class
         super().__init__()
         if not rotation:
             self.images = KillingEnemy.images
@@ -1029,6 +1128,7 @@ class KillingEnemy(pygame.sprite.Sprite):
         self.rotation = rotation
 
     def change_animation(self):
+        # Animating
         if time() - self.prev_animation_time < self.animation_delta:
             return
         self.prev_animation_time = time()
@@ -1039,6 +1139,7 @@ class KillingEnemy(pygame.sprite.Sprite):
             self.image = self.images[self.current_index]
 
     def follow_player(self):
+        # Follow player function (may be disabled)
         self.rect = self.rect.move(-WALLS_SPEED, 0)
         self.collision_rect = self.collision_rect.move(-WALLS_SPEED, 0)
         return
@@ -1067,6 +1168,7 @@ class KillingEnemy(pygame.sprite.Sprite):
             self.running = False
 
     def draw_a_hitbox(self):
+        # Hitbox drawing
         pygame.draw.rect(screen, pygame.Color("red"), self.collision_rect, width=1)
 
 
@@ -1086,9 +1188,10 @@ def reload_images():
 
 
 def save_data():
-    with open("game_save.json", "w") as f:
+    # Saving game data
+    with open("saves/game_save.json", "w") as f:
         json.dump({"coins": coins_count, "high_score": max(score, high_score), "selected": selected_skin}, f)
-    with open("obtained.json", "w") as f:
+    with open("saves/obtained.json", "w") as f:
         json.dump(obtained_characters, f)
 
 
@@ -1128,7 +1231,7 @@ if __name__ == "__main__":
     reviving_angel_sprite = pygame.sprite.Group()
 
     try:
-        with open("game_save.json") as f:
+        with open("saves/game_save.json") as f:
             all_data = json.load(f)
             coins_count += all_data["coins"]
             high_score = all_data["high_score"]
@@ -1235,21 +1338,21 @@ if __name__ == "__main__":
                 player.tiles_check()
                 player.coins_check()
             else:
-                blit_x, blit_y = player.rect.x, player.rect.y
+                blit_x, blit_y = player.rect.centerx, player.rect.centery
                 if player.rect.y > SCREEN_HEIGHT - player.rect.height:
-                    blit_y = SCREEN_HEIGHT - player.rect.height
-                    blit_x = -15
+                    blit_y = SCREEN_HEIGHT
+                    blit_x = 30
                 elif player.rect.y < 0:
-                    blit_y = -50
-                    blit_x = -15
-                screen.blit(death_frames[current_death_animation_index], (blit_x, blit_y))
+                    blit_y = 5
+                    blit_x = 30
+                frame = death_frames[current_death_animation_index]
+                screen.blit(frame, (blit_x - frame.get_width() // 2, blit_y - frame.get_height() // 2))
                 current_death_animation_index += 1
                 if current_death_animation_index == len(death_frames):
                     current_death_animation_index = -1
                     game_state = GAME_STATE_MENU
                     reset_game()
                 clock.tick(30)
-
 
             # Walls rendering
             if current_death_animation_index == -1:
@@ -1407,7 +1510,6 @@ if __name__ == "__main__":
             rendered = font.render(f"Score: {score}", True, (255, 255, 255))
             screen.blit(rendered, (SCREEN_WIDTH - rendered.get_width() - 5 * ENLARGING_COEFFICIENT,
                                    rendered.get_height() - 5 * ENLARGING_COEFFICIENT))
-
 
             if time() - prev_show_coin_frame_time > COIN_ANIMATION_DELTA:
                 current_show_coin_frame = (current_show_coin_frame + 1) % len(show_coin_frames)
