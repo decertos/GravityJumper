@@ -20,6 +20,30 @@ def get_images(contains=""):
     return images
 
 
+pygame.mixer.init(44100, 16, 2, 4096)
+sound_on = True
+pygame.mixer.music.load("sounds/background_music.mp3")
+
+if sound_on:
+    pygame.mixer.music.stop()
+    pygame.mixer.music.load("sounds/background_music.mp3")
+    pygame.mixer.music.play(-1, 0.0)
+
+
+sound_effects = {"run": pygame.mixer.Sound("sounds/run.mp3"),
+                 "jump": pygame.mixer.Sound("sounds/jump.mp3"),
+                 "buy": pygame.mixer.Sound("sounds/buy.mp3"),
+                 "buy_max": pygame.mixer.Sound("sounds/buy_max.mp3"),
+                 "button_click": pygame.mixer.Sound("sounds/button_click.mp3"),
+                 "background_music": pygame.mixer.Sound("sounds/background_music.mp3"),
+                 "death_sound": pygame.mixer.Sound("sounds/death_sound.mp3"),
+                 "revival": pygame.mixer.Sound("sounds/revival.mp3"),
+                 "coin_collected": pygame.mixer.Sound("sounds/coin_collected.mp3"),
+                 "bounce": pygame.mixer.Sound("sounds/bounce.mp3"),
+                 "electrical_tile": pygame.mixer.Sound("sounds/electrical_tile.mp3")
+                 }
+
+
 # Reloading save files is they are deleted
 characters_list = ["Lizard", "Female Lizard", "Dwarf", "Knight", "Female Knight", "Skeleton", "Elf", "Pumpkin Dude",
                    "Doctor"]
@@ -303,9 +327,13 @@ def game_over():
     # Game over function
     global game_state, heart_up, heart, current_death_animation_index, current_reviving_smoke_index, reviving_angel_sprite, high_score
 
+    if sound_on:
+        pygame.mixer.music.stop()
     save_data()
 
     if heart:
+        if sound_on:
+            sound_effects["revival"].play()
         # If revival bought
         game_state = GAME_STATE_PLAYING
         heart = False
@@ -314,6 +342,12 @@ def game_over():
         current_reviving_smoke_index = 0
         return
 
+    if sound_on:
+        sound_effects["death_sound"].play()
+    if sound_on:
+        pygame.mixer.music.stop()
+        pygame.mixer.music.load("sounds/background_music.mp3")
+        pygame.mixer.music.play(-1, 0.0)
     reviving_angel_sprite = pygame.sprite.Group()
     current_death_animation_index = 0
     high_score = max(score, high_score)
@@ -359,24 +393,44 @@ def buy_upgrade(upgrade_type, can_upgrade):
             coins_count -= HEART_UPGRADE_COST
             heart_up = True
             data["heart_up"] = True
+            if sound_on:
+                sound_effects["buy"].play()
+        else:
+            if sound_on:
+                sound_effects["button_click"].play()
 
     elif upgrade_type == "money_chance_up" and money_chance_up < 3 and can_upgrade:
         if coins_count >= MONEY_CHANCE_UPGRADE_COSTS[money_chance_up]:
             coins_count -= MONEY_CHANCE_UPGRADE_COSTS[money_chance_up]
             money_chance_up += 1
             data["money_chance_up"] = money_chance_up
+            if sound_on:
+                sound_effects["buy"].play()
+        else:
+            if sound_on:
+                sound_effects["button_click"].play()
 
     elif upgrade_type == "boss_time_up" and boss_time_up < 3 and can_upgrade:
         if coins_count >= BOSS_TIME_UPGRADE_COSTS[boss_time_up]:
             coins_count -= BOSS_TIME_UPGRADE_COSTS[boss_time_up]
             boss_time_up += 1
             data["boss_time_up"] = boss_time_up
+            if sound_on:
+                sound_effects["buy"].play()
+        else:
+            if sound_on:
+                sound_effects["button_click"].play()
 
     elif upgrade_type == "money_mult_up" and not money_mult_up and can_upgrade:
         if coins_count >= MONEY_MULT_UPGRADE_COST:
             coins_count -= MONEY_MULT_UPGRADE_COST
             money_mult_up = True
             data["money_mult_up"] = True
+            if sound_on:
+                sound_effects["buy"].play()
+        else:
+            if sound_on:
+                sound_effects["button_click"].play()
 
     with open("saves/shop_save.json", "w") as f:
         json.dump(data, f, indent=4)
@@ -447,17 +501,24 @@ def shop():
                         shop_state = 1
                         upgrade_menu_exit_button_rect, heart_icon_rect, money_chance_icon_rect, boss_time_icon_rect, money_mult_icon_rect, can_upgrade_money_chance, can_upgrade_boss_time, can_upgrade_heart, can_upgrade_money_mult = draw_upgrade_menu()
                         pygame.display.update()
+                        if sound_on:
+                            sound_effects["button_click"].play()
 
                     elif skins_button_rect.collidepoint(mouse_pos):
                         shop_state = 2
-                        pass
+                        if sound_on:
+                            sound_effects["button_click"].play()
                     elif exit_button_rect.collidepoint(mouse_pos):
                         global game_state
                         game_state = GAME_STATE_MENU
+                        if sound_on:
+                            sound_effects["button_click"].play()
                         return
 
                 elif shop_state == 1:
                     if upgrade_menu_exit_button_rect.collidepoint(mouse_pos):
+                        if sound_on:
+                            sound_effects["button_click"].play()
                         shop_state = 0
                         upgrade_menu_exit_button_rect = None
                         draw_shop()
@@ -476,15 +537,23 @@ def shop():
                         upgrade_menu_exit_button_rect, heart_icon_rect, money_chance_icon_rect, boss_time_icon_rect, money_mult_icon_rect, can_upgrade_money_chance, can_upgrade_boss_time, can_upgrade_heart, can_upgrade_money_mult = draw_upgrade_menu()
                 elif shop_state == 2:
                     if buy_button.collidepoint(mouse_pos):
+                        if sound_on:
+                            sound_effects["button_click"].play()
                         if not obtained_characters[current_title] and coins_count - data[current_title][1] >= 0:
+                            if sound_on:
+                                sound_effects["buy"].play()
                             obtained_characters[current_title] = True
                             coins_count -= data[current_title][1]
                         elif obtained_characters[current_title]:
                             selected_skin = current_title
                             player.load_frames()
                     elif skin_exit_button.collidepoint(mouse_pos):
+                        if sound_on:
+                            sound_effects["button_click"].play()
                         shop_state = 0
                     elif left_button_rect.collidepoint(mouse_pos):
+                        if sound_on:
+                            sound_effects["button_click"].play()
                         current_skin_animation_index = (current_skin_animation_index - 1) % len(characters)
                         current_title = characters_list[current_skin_animation_index]
                         current_skin_animation_image_index = 0
@@ -492,6 +561,8 @@ def shop():
                         for i in all_images[current_title]:
                             images.append(pygame.transform.scale(i, (i.get_width() * 5, i.get_height() * 5)))
                     elif right_button_rect.collidepoint(mouse_pos):
+                        if sound_on:
+                            sound_effects["button_click"].play()
                         current_skin_animation_index = (current_skin_animation_index + 1) % len(characters)
                         current_title = characters_list[current_skin_animation_index]
                         current_skin_animation_image_index = 0
@@ -547,6 +618,14 @@ def draw_main_menu():
     screen.blit(high_score_text, (SCREEN_WIDTH // 2 - high_score_text.get_width() // 2,
                                   title_rect.bottom + 5))
 
+    sound_on_text = font.render(f"Sound: {"on" if sound_on else "off"}", True, "red" if not sound_on else "green")
+    screen.blit(sound_on_text, (SCREEN_WIDTH - 5 - sound_on_text.get_width(),
+                                SCREEN_HEIGHT - 5 - sound_on_text.get_height()))
+    sound_on_rect = pygame.Rect(SCREEN_WIDTH - 5 - sound_on_text.get_width(),
+                                SCREEN_HEIGHT - 5 - sound_on_text.get_height(),
+                                sound_on_text.get_width(),
+                                sound_on_text.get_height())
+
     if GAME_STATE_SHOP == 2:
         screen.blit(shop_text, shop_rect)
 
@@ -566,37 +645,54 @@ def draw_main_menu():
     screen.blit(coin_image, coin_image_rect)
     screen.blit(coin_text, coin_text_rect)
 
-    return start_rect, quit_rect, shop_rect
+    return start_rect, quit_rect, shop_rect, sound_on_rect
 
 
-def handle_menu_input(position, start_rect, quit_rect, shop_rect):
+def handle_menu_input(position, start_rect, quit_rect, shop_rect, sound_rect):
     # If a button in the main menu is pressed
-    global game_state, heart, heart_up
+    global game_state, heart, heart_up, sound_on
 
     new_mouse_pos = position
 
     if start_rect.collidepoint(new_mouse_pos):
+        if sound_on:
+            sound_effects["button_click"].play()
         if heart_up:
             heart = True
         game_state = GAME_STATE_PLAYING
         reset_game()
     elif quit_rect.collidepoint(new_mouse_pos):
+        if sound_on:
+            sound_effects["button_click"].play()
         save_data()
         pygame.quit()
         exit()
+    elif sound_rect.collidepoint(new_mouse_pos):
+        sound_on = not sound_on
+        if not sound_on:
+            pygame.mixer.music.stop()
+        else:
+            pygame.mixer.music.load("sounds/background_music.mp3")
+            pygame.mixer.music.play()
     elif shop_rect.collidepoint(new_mouse_pos):
+        if sound_on:
+            sound_effects["button_click"].play()
         game_state = GAME_STATE_SHOP
         shop()
 
 
 def reset_game(reset_score=True):
     # Start or reset game
-    global coins, tiles_up, tiles_down, enemies, fireballs, player, coins_count, wall_render_delta, score, current_wall_images, show_hint, hint_delta
+    global coins, tiles_up, tiles_down, enemies, fireballs, player, coins_count, wall_render_delta, score, current_wall_images, show_hint, hint_delta, music
 
     coins = []
     wall_render_delta = 0
     if reset_score:
         score = 0
+
+    if sound_on and game_state == GAME_STATE_PLAYING:
+        pygame.mixer.music.load("sounds/run.mp3")
+        pygame.mixer.music.play(-1, 0.0)
     enemies = pygame.sprite.Group()
     fireballs = pygame.sprite.Group()
 
@@ -650,6 +746,8 @@ class Player(pygame.sprite.Sprite):
 
         self.gravity_change_delta = 0.35
         self.prev_gravity_change = -1
+
+        self.music_playing = True
 
     def load_frames(self):
         # Load skins
@@ -719,6 +817,8 @@ class Player(pygame.sprite.Sprite):
             elif isinstance(tile, BouncingTile):
                 if self.flown:
                     continue
+                if sound_on:
+                    sound_effects["bounce"].play()
                 tile.bounced = True
                 self.rect.y = tile.rect.bottom
                 self.reverse_jump()
@@ -745,6 +845,8 @@ class Player(pygame.sprite.Sprite):
                 tile.bounced = True
                 self.rect.y = tile.rect.top - self.rect.height
                 self.reverse_jump()
+                if sound_on:
+                    sound_effects["bounce"].play()
                 # Regular floor tile: adjust position based on movement direction
             if not isinstance(tile, BouncingTile):
                 if self.vy > 0:  # Moving down into the tile
@@ -753,6 +855,12 @@ class Player(pygame.sprite.Sprite):
                 elif self.vy < 0:  # Moving up into the tile
                     self.rect.top = tile.rect.bottom
                     self.vy = 0
+
+        if collided or collided1 and not self.music_playing:
+            self.music_playing = True
+            if sound_on:
+                pygame.mixer.music.load("sounds/run.mp3")
+                pygame.mixer.music.play(-1, 0.0)
 
         # Apply gravity if no collisions and not moving
         if self.vy == 0 and not collided and not collided1:
@@ -765,6 +873,8 @@ class Player(pygame.sprite.Sprite):
         to_pop = []
         for i in range(len(coins)):
             if self.rect.colliderect(coins[i].rect):
+                if sound_on:
+                    sound_effects["coin_collected"].play()
                 to_pop.append(i)
                 if money_mult_up:
                     coins_count += 1
@@ -795,6 +905,10 @@ class Player(pygame.sprite.Sprite):
         # Changing gravity
         if time() - self.prev_gravity_change < self.gravity_change_delta:
             return
+        pygame.mixer.music.stop()
+        self.music_playing = False
+        if sound_on:
+            sound_effects["jump"].play()
         self.prev_gravity_change = time()
         if self.up_pos:
             self.image = self.frames[self.current_image_index]
@@ -869,6 +983,8 @@ class ElectricalTile(Tile):
         if self.timer >= 5:
             self.animation_delta = ACTIVATED_ELECTRICAL_TILE_ANIMATION_DELTA
             self.activated = True
+        if self.timer == 5 and sound_on:
+            sound_effects["electrical_tile"].play()
         if self.timer >= 9:
             self.animation_delta = TILE_ANIMATION_DELTA
             self.timer = 1
@@ -1274,9 +1390,9 @@ if __name__ == "__main__":
                 running = False
                 break
             if game_state == GAME_STATE_MENU:
-                start_rect, quit_rect, shop_rect = draw_main_menu()
+                start_rect, quit_rect, shop_rect, sound_rect = draw_main_menu()
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    handle_menu_input(event.pos, start_rect, quit_rect, shop_rect)
+                    handle_menu_input(event.pos, start_rect, quit_rect, shop_rect, sound_rect)
             elif game_state == GAME_STATE_PLAYING:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     player.reverse_jump()
@@ -1536,7 +1652,7 @@ if __name__ == "__main__":
                     i.draw_a_hitbox()
 
         elif game_state == GAME_STATE_MENU:
-            start_rect, quit_rect, shop_rect = draw_main_menu()
+            start_rect, quit_rect, shop_rect, sound_rect = draw_main_menu()
             pass
 
         if game_state == GAME_STATE_MENU:
@@ -1545,7 +1661,7 @@ if __name__ == "__main__":
                 prev_main_menu_coin_animation_time = time()
 
         if game_state == GAME_STATE_MENU:
-            start_rect, quit_rect, shop_rect = draw_main_menu()
+            start_rect, quit_rect, shop_rect, sound_rect = draw_main_menu()
 
         # Display drawing
         clock.tick(FPS)
