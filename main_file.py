@@ -324,17 +324,16 @@ def apply_upgrades():
 
 
 def game_over():
-    # Game over function
     global game_state, heart_up, heart, current_death_animation_index, current_reviving_smoke_index, reviving_angel_sprite, high_score
 
     if sound_on:
         pygame.mixer.music.stop()
+        sound_effects["death_sound"].play()
     save_data()
 
     if heart:
         if sound_on:
             sound_effects["revival"].play()
-        # If revival bought
         game_state = GAME_STATE_PLAYING
         heart = False
         reset_game(reset_score=False)
@@ -343,11 +342,9 @@ def game_over():
         return
 
     if sound_on:
-        sound_effects["death_sound"].play()
-    if sound_on:
-        pygame.mixer.music.stop()
         pygame.mixer.music.load("sounds/background_music.mp3")
-        pygame.mixer.music.play(-1, 0.0)
+        pygame.mixer.music.play(-1, 0.0)  # Main menu background music
+
     reviving_angel_sprite = pygame.sprite.Group()
     current_death_animation_index = 0
     high_score = max(score, high_score)
@@ -673,7 +670,7 @@ def handle_menu_input(position, start_rect, quit_rect, shop_rect, sound_rect):
             pygame.mixer.music.stop()
         else:
             pygame.mixer.music.load("sounds/background_music.mp3")
-            pygame.mixer.music.play()
+            pygame.mixer.music.play(-1, 0.0)
     elif shop_rect.collidepoint(new_mouse_pos):
         if sound_on:
             sound_effects["button_click"].play()
@@ -1399,6 +1396,10 @@ if __name__ == "__main__":
             elif game_state == GAME_STATE_SHOP:
                 shop()
 
+        if game_state == GAME_STATE_MENU:
+            if sound_on and not pygame.mixer.music.get_busy():
+                pygame.mixer.music.load("sounds/background_music.mp3")
+                pygame.mixer.music.play(-1, 0.0)
         for i in reviving_angel_sprite:
             i.change_image()
         if game_state == GAME_STATE_PLAYING:
